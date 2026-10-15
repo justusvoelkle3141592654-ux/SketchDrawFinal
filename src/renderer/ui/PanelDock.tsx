@@ -9,8 +9,9 @@ import { BrushesPanel } from './panels/BrushesPanel';
 import { PalettesPanel } from './panels/PalettesPanel';
 import { AnimationPanel } from './panels/AnimationPanel';
 import { ReferencePanel } from './panels/ReferencePanel';
+import { ErrorBoundary } from './ErrorBoundary';
 
-const CONTENT: Record<PanelId, () => ReactNode> = {
+const PANELS: Record<PanelId, () => ReactNode> = {
   colour: () => <ColourPanel />,
   palettes: () => <PalettesPanel />,
   brushes: () => <BrushesPanel />,
@@ -18,6 +19,18 @@ const CONTENT: Record<PanelId, () => ReactNode> = {
   animation: () => <AnimationPanel />,
   reference: () => <ReferencePanel />,
 };
+
+/** Panel content behind an error boundary, so one failing panel never blanks the workspace. */
+const CONTENT = Object.fromEntries(
+  (Object.keys(PANELS) as PanelId[]).map((id) => [
+    id,
+    () => (
+      <ErrorBoundary name={`${PANEL_TITLES[id]} panel`} kind="panel">
+        {PANELS[id]()}
+      </ErrorBoundary>
+    ),
+  ]),
+) as Record<PanelId, () => ReactNode>;
 
 function PanelHeader({
   id,

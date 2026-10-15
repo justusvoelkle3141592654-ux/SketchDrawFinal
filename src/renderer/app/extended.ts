@@ -15,6 +15,7 @@ import { fillCoverage } from '../engine/pixel-ops';
 import { useColors } from '../state/colors';
 import type { IconName } from '../ui/icons';
 import { adjustTarget, applyAdjustmentNow } from './adjust-actions';
+import { addReferenceFromClipboard, addReferenceFromDialog } from './references';
 
 function assist(fn: (a: NonNullable<ReturnType<typeof activeSession>>['assist']) => void) {
   const s = activeSession();
@@ -373,6 +374,23 @@ export function registerExtendedFeatures() {
       enabled: hasDoc,
     });
   }
+  register({
+    id: 'reference.add',
+    label: 'Add reference image…',
+    group: 'View',
+    icon: 'image',
+    hint: 'Shows an image in the Reference panel; it is saved with the document and never changes the artwork.',
+    run: () => void addReferenceFromDialog(),
+    enabled: hasDoc,
+  });
+  register({
+    id: 'reference.paste',
+    label: 'Paste reference image',
+    group: 'View',
+    icon: 'paste',
+    run: () => void addReferenceFromClipboard(),
+    enabled: hasDoc,
+  });
   register({
     id: 'assist.symmetry',
     label: 'Symmetry',

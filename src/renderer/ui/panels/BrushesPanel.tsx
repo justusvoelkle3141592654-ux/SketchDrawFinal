@@ -72,11 +72,12 @@ export function BrushesPanel() {
 
   const startDrag = (id: string, e: React.PointerEvent) => {
     if (e.button !== 0 || filter !== 'All' || query) return;
-    const el = e.currentTarget as HTMLElement;
+    if ((e.target as HTMLElement).closest('.brush-actions, input')) return;
+    // window listeners instead of pointer capture, so clicks still reach the row's buttons
+    const el = window;
     const sy = e.clientY;
     let dragging = false;
     let target: { id: string; after: boolean } | null = null;
-    el.setPointerCapture(e.pointerId);
     const move = (ev: PointerEvent) => {
       if (!dragging && Math.abs(ev.clientY - sy) < 6) return;
       dragging = true;
@@ -228,101 +229,133 @@ export function BrushesPanel() {
           ))}
         </div>
       </div>
-      <div className="brush-list" role="listbox" aria-label="Brushes" ref={listRef} data-testid="brush-list">
+      <div
+        className="brush-list"
+        role="list"
+        aria-label="Brushes"
+        ref={listRef}
+        data-testid="brush-list"
+        onKeyDown={(e) => {
+          // arrow keys move between brushes (and choose them); Tab leaves the list
+          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+          const items = [...(listRef.current?.querySelectorAll<HTMLButtonElement>('.brush-main') ?? [])];
+          const i = items.indexOf(document.activeElement as HTMLButtonElement);
+          if (i < 0) return;
+          e.preventDefault();
+          const next = items[Math.min(items.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+          next.focus();
+          next.click();
+        }}
+      >
         {list.length === 0 ? <p className="panel-empty">No brushes match.</p> : null}
-        {list.map((b) => (
-          <div
-            key={b.id}
-            role="option"
-            aria-selected={b.id === activeId}
-            tabIndex={0}
-            data-brush-id={b.id}
-            className={`brush-item ${b.id === activeId ? 'is-active' : ''} ${dragOver?.id === b.id ? (dragOver.after ? 'drop-below' : 'drop-above') : ''}`}
-            onClick={() => choose(b)}
-            onDoubleClick={() => useUi.getState().openDialog('brush-lab', { id: b.id })}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                choose(b);
-              }
-              if (e.key === 'F2') setRenaming(b.id);
-              if (e.key === 'Delete') void remove(b);
-            }}
-            onPointerDown={(e) => startDrag(b.id, e)}
-            data-testid="brush-item"
-          >
-            <Stamp brush={b} theme={theme} />
-            <div className="brush-text">
-              {renaming === b.id ? (
-                <input
-                  autoFocus
-                  className="layer-name-input"
-                  defaultValue={b.name}
-                  aria-label="Brush name"
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                    if (e.key === 'Escape') setRenaming(null);
-                  }}
-                  onBlur={(e) => {
-                    const v = e.target.value.trim().slice(0, 80);
-                    if (v && v !== b.name) store.update(b.id, (x) => void (x.name = v));
-                    setRenaming(null);
-                  }}
-                />
-              ) : (
-                <span className="brush-name">{b.name}</span>
-              )}
-              <span className="brush-meta">
-                {b.category} · {Math.round(b.diameter * 10) / 10}px
+        {list.map((b, index) => {
+          const fav = favorites.includes(b.id);
+          // one tab stop for the whole list: the active brush (or the first one when it is filtered out)
+          const tabStop = b.id === activeId || (index === 0 && !list.some((x) => x.id === activeId));
+          const tab = tabStop ? 0 : -1;
+          const meta = `${b.category} · ${Math.round(b.diameter * 10) / 10}px`;
+          const body = (
+            <>
+              <Stamp brush={b} theme={theme} />
+              <span className="brush-text">
+                {renaming === b.id ? (
+                  <input
+                    autoFocus
+                    className="layer-name-input"
+                    defaultValue={b.name}
+                    aria-label="Brush name"
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      if (e.key === 'Escape') setRenaming(null);
+                    }}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim().slice(0, 80);
+                      if (v && v !== b.name) store.update(b.id, (x) => void (x.name = v));
+                      setRenaming(null);
+                    }}
+                  />
+                ) : (
+                  <span className="brush-name">{b.name}</span>
+                )}
+                <span className="brush-meta">{meta}</span>
               </span>
+            </>
+          );
+          return (
+            <div
+              key={b.id}
+              role="listitem"
+              data-brush-id={b.id}
+              className={`brush-item ${b.id === activeId ? 'is-active' : ''} ${dragOver?.id === b.id ? (dragOver.after ? 'drop-below' : 'drop-above') : ''}`}
+              onPointerDown={(e) => startDrag(b.id, e)}
+              data-testid="brush-item"
+            >
+              {renaming === b.id ? (
+                <div className="brush-main">{body}</div>
+              ) : (
+                <button
+                  type="button"
+                  className="brush-main"
+                  tabIndex={tab}
+                  aria-pressed={b.id === activeId}
+                  aria-label={`${b.name}, ${meta}`}
+                  data-tip="Click to use · double-click for Brush Lab · F2 rename · Delete removes"
+                  onClick={() => choose(b)}
+                  onDoubleClick={() => useUi.getState().openDialog('brush-lab', { id: b.id })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'F2') {
+                      e.preventDefault();
+                      setRenaming(b.id);
+                    }
+                    if (e.key === 'Delete') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void remove(b);
+                    }
+                  }}
+                >
+                  {body}
+                </button>
+              )}
+              <div className="brush-actions">
+                <button
+                  type="button"
+                  tabIndex={tab}
+                  className={`mini-btn ${fav ? 'is-fav' : ''}`}
+                  aria-label={fav ? `Remove ${b.name} from favourites` : `Add ${b.name} to favourites`}
+                  aria-pressed={fav}
+                  data-tip="Favourite"
+                  onClick={() => store.toggleFavorite(b.id)}
+                >
+                  <Icon name={fav ? 'starFilled' : 'star'} size={14} />
+                </button>
+                <button
+                  type="button"
+                  tabIndex={tab}
+                  className="mini-btn"
+                  aria-label={`Rename ${b.name}`}
+                  data-tip="Rename (F2)"
+                  onClick={() => setRenaming(b.id)}
+                >
+                  <Icon name="text" size={14} />
+                </button>
+                <button
+                  type="button"
+                  tabIndex={tab}
+                  className="mini-btn"
+                  aria-label={`Delete ${b.name}`}
+                  data-tip="Delete brush"
+                  onClick={() => void remove(b)}
+                >
+                  <Icon name="trash" size={14} />
+                </button>
+              </div>
             </div>
-            <div className="brush-actions">
-              <button
-                type="button"
-                className={`mini-btn ${favorites.includes(b.id) ? 'is-fav' : ''}`}
-                aria-label={
-                  favorites.includes(b.id)
-                    ? `Remove ${b.name} from favourites`
-                    : `Add ${b.name} to favourites`
-                }
-                aria-pressed={favorites.includes(b.id)}
-                data-tip="Favourite"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  store.toggleFavorite(b.id);
-                }}
-              >
-                <Icon name={favorites.includes(b.id) ? 'starFilled' : 'star'} size={14} />
-              </button>
-              <button
-                type="button"
-                className="mini-btn"
-                aria-label={`Rename ${b.name}`}
-                data-tip="Rename (F2)"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setRenaming(b.id);
-                }}
-              >
-                <Icon name="text" size={14} />
-              </button>
-              <button
-                type="button"
-                className="mini-btn"
-                aria-label={`Delete ${b.name}`}
-                data-tip="Delete brush"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void remove(b);
-                }}
-              >
-                <Icon name="trash" size={14} />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

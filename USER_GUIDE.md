@@ -5,16 +5,16 @@
 | Area | Purpose |
 |---|---|
 | Title bar | Open documents as tabs. A teal dot marks unsaved changes. Middle-click or × closes a tab (you are asked about unsaved changes). |
-| Command bar | Command search (☰), document, history, navigation, selection/transform, assists, drawing modes, panel toggles and Focus Canvas. Hover any button for its name and shortcut. |
+| Command bar | Command search (☰), document, history, navigation, selection/transform, assists, drawing modes, panel toggles and Focus Canvas. Hover any button for its name and shortcut. In a narrow window, the groups that do not fit move into the ⋯ *More commands* menu at the end. |
 | Tool options | A slim strip at the top of the canvas with the settings of the active tool (brush size, selection mode, tolerance, transform values, text font…). |
-| Tool rail (left) | Drawing, fill, selection, transform, shape, text and navigation tools, plus foreground/background colours. |
+| Tool rail (left) | Drawing, fill, selection, transform, shape, text and navigation tools, plus foreground/background colours. Buttons with a small corner mark hold a group (selection, shapes, navigation): click uses the last tool of the group; right-click, press and hold, or press → (← in left-handed layout) to choose another. |
 | Canvas | Your document. The canvas always takes most of the window. |
 | Panels (right) | Colour, Brushes, Layers (visible by default), Palettes, Animation and Reference. Drag a panel title out of the dock to float it, drop it near the screen edge to dock it again, drag the dividers to resize. |
 | Orbit (lower left) | Radial quick menu — see below. |
 | Pucks | Size/opacity puck and navigation puck (buttons next to Orbit, or `S` / `Shift+S` at the pointer). |
 | Status bar | Active brush, colour, zoom (type a value and press Enter), rotation, size and save status. |
 
-**Focus Canvas** (`Tab` while the canvas has focus, or the frame button): hides everything except the canvas. The small button in the top-right corner, `Tab` or `Esc` brings the workspace back.
+**Focus Canvas** (`Tab` after drawing on the canvas, or the frame button): hides everything except the canvas. The small button in the top-right corner, `Tab` or `Esc` brings the workspace back. While a panel or button has keyboard focus, `Tab` moves through the interface as usual.
 
 **Left-handed layout** (Preferences → General): moves the tool rail and Orbit to the right and panels to the left. Text and shortcuts stay the same.
 
@@ -85,6 +85,16 @@
 * **Ruler**, **ellipse** and **perspective** guides (command bar): strokes that start near a guide follow it. Drag the guide handles on the canvas — ruler ends (`Shift` snaps to 15°), ellipse centre and radius handles, vanishing points (1-, 2- or 3-point; the first two share a horizon unless `Shift` is held).
 * **Grid** (`Ctrl+'`): size in the tool options; *Snap shapes* makes shape tools snap to it.
 
+## Reference images
+
+The **Reference** panel (`F9`, or *Add reference image…* in the command search) shows images next to your canvas.
+
+* Add images with the image button (file), the clipboard button, or by dropping image files onto the panel. Up to 12 references per document; they are saved inside the `.cforge` file and never become part of the artwork or exports.
+* Drag to pan, scroll to zoom, double-click to fit. With the panel focused: `+`/`-` zoom, `0` fits, arrow keys pan.
+* Flip and greyscale change only the view (greyscale helps compare values).
+* Picking colours: turn on the eyedropper button and click, or `Alt`+click at any time, or click while the eyedropper tool is active.
+* Adding and removing references can be undone.
+
 ## Command search
 
 `Ctrl+K` or the ☰ button lists every command grouped like a menu, with its shortcut. Type to filter, use the arrow keys and Enter to run.
@@ -121,3 +131,17 @@ Orbit is Canvas Forge's radial quick menu with eight configurable segments (Pref
 * **Orbit**: segment commands.
 * **Keyboard shortcuts**: search, click *Change* and press new keys (Backspace clears, Esc cancels); conflicts are moved automatically.
 * **Files & memory**: recovery interval, export name template, undo memory budget, clear recent files.
+
+## Keyboard and accessibility
+
+* Every command is reachable from the command search (`Ctrl+K`) and most have shortcuts (customisable in Preferences → Keyboard shortcuts).
+* `Tab` moves through title bar, command bar, tool rail, tool options, pucks, Orbit and panels; the focused control always shows a visible ring. In lists (brushes, layers, palette swatches) only one item is a tab stop — use the arrow keys inside, `Enter` to choose, `F2` to rename and `Delete` to delete a brush.
+* Document tabs: arrow keys switch, `Ctrl+W` or `Delete` closes.
+* *Roomy* density (Preferences → General) enlarges buttons for touch and pen.
+
+## When something goes wrong
+
+* If a panel fails, it shows a short message with *Try again*; the canvas and your documents keep working.
+* Unexpected errors appear as a red notice in the lower corner instead of being ignored.
+* If the drawing view stops or hangs, Canvas Forge offers to reload it; recovery snapshots written before the problem are offered after the reload.
+

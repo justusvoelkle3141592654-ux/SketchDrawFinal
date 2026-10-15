@@ -1,11 +1,11 @@
 // Window chrome: title/document tabs, command bar, tool rail, status bar and start screen.
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDocs, useActiveSession } from '../state/documents';
-import { useUi } from '../state/ui';
+import { useUi, type ToolId } from '../state/ui';
 import { usePrefs } from '../state/preferences';
 import { useColors } from '../state/colors';
 import { useBrushes } from '../state/brushes';
-import { getCommand, runCommand, tooltipFor, useCommandState } from '../app/commands';
+import { getCommand, runCommand, shortcutsFor, tooltipFor, useCommandState } from '../app/commands';
 import { closeSession, openNewDocumentDialog, openDocumentDialog, openRecent } from '../app/file-actions';
 import { forge, isMac } from '../platform';
 import { AppMark, Icon } from './icons';
@@ -40,44 +40,56 @@ export function TitleBar() {
   useDocs((s) => s.rev);
   const setActive = useDocs((s) => s.setActive);
   return (
-    <header className={`titlebar ${isMac ? 'is-mac' : ''}`}>
+    <header className={`titlebar ${isMac ? 'is-mac' : ''}`} aria-label="Documents">
       <div className="titlebar-mark" aria-hidden="true">
         <AppMark size={18} />
         <span className="titlebar-name">Canvas Forge</span>
       </div>
-      <div className="doc-tabs" role="tablist" aria-label="Open documents">
-        {sessions.map((s) => (
-          <div
-            key={s.id}
-            role="tab"
-            aria-selected={s.id === activeId}
-            tabIndex={0}
-            className={`doc-tab ${s.id === activeId ? 'is-active' : ''}`}
-            onClick={() => setActive(s.id)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') setActive(s.id);
-            }}
-            onAuxClick={(e) => e.button === 1 && void closeSession(s)}
-            data-tip={s.filePath ?? 'Not saved yet'}
-            data-testid="doc-tab"
-          >
-            <span className="doc-tab-name">{s.displayName}</span>
-            {s.dirty ? (
-              <span className="doc-tab-dirty" aria-label="Unsaved changes" data-testid="dirty-dot" />
-            ) : null}
-            <button
-              type="button"
-              className="doc-tab-close"
-              aria-label={`Close ${s.displayName}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                void closeSession(s);
+      <div className="doc-tabs-row">
+        <div className="doc-tabs" role="tablist" aria-label="Open documents">
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              role="tab"
+              aria-selected={s.id === activeId}
+              aria-label={`${s.displayName}${s.dirty ? ', unsaved changes' : ''}`}
+              tabIndex={s.id === activeId ? 0 : -1}
+              className={`doc-tab ${s.id === activeId ? 'is-active' : ''}`}
+              onClick={() => setActive(s.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') setActive(s.id);
+                if (e.key === 'Delete') void closeSession(s);
+                if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                  const i = sessions.indexOf(s);
+                  const next =
+                    sessions[(i + (e.key === 'ArrowRight' ? 1 : -1) + sessions.length) % sessions.length];
+                  setActive(next.id);
+                  requestAnimationFrame(() =>
+                    document.querySelector<HTMLElement>(`[data-doc-tab="${next.id}"]`)?.focus(),
+                  );
+                }
               }}
+              onAuxClick={(e) => e.button === 1 && void closeSession(s)}
+              data-tip={`${s.filePath ?? 'Not saved yet'} — Ctrl+W or Delete closes`}
+              data-doc-tab={s.id}
+              data-testid="doc-tab"
             >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
-        ))}
+              <span className="doc-tab-name">{s.displayName}</span>
+              {s.dirty ? <span className="doc-tab-dirty" aria-hidden="true" data-testid="dirty-dot" /> : null}
+              {/* pointer shortcut; keyboard users close with Ctrl+W or Delete on the tab */}
+              <span
+                className="doc-tab-close"
+                aria-hidden="true"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void closeSession(s);
+                }}
+              >
+                <Icon name="close" size={12} />
+              </span>
+            </div>
+          ))}
+        </div>
         <button
           type="button"
           className="doc-tab-new"
@@ -94,10 +106,15 @@ export function TitleBar() {
   );
 }
 
-const GROUPS: { label: string; ids: string[] }[] = [
-  { label: 'Menu', ids: ['app.commands'] },
-  { label: 'Document', ids: ['file.new', 'file.open', 'file.save', 'file.import', 'file.export'] },
-  { label: 'History', ids: ['edit.undo', 'edit.redo'] },
+/** Command bar groups; when the window is narrow, low-priority groups move into the "More" menu. */
+const GROUPS: { label: string; ids: string[]; priority: number }[] = [
+  { label: 'Menu', ids: ['app.commands'], priority: 100 },
+  {
+    label: 'Document',
+    ids: ['file.new', 'file.open', 'file.save', 'file.import', 'file.export'],
+    priority: 90,
+  },
+  { label: 'History', ids: ['edit.undo', 'edit.redo'], priority: 85 },
   {
     label: 'Navigate',
     ids: [
@@ -108,16 +125,19 @@ const GROUPS: { label: string; ids: string[] }[] = [
       'view.resetRotation',
       'view.mirror',
     ],
+    priority: 60,
   },
   {
     label: 'Select & transform',
     ids: ['select.all', 'select.none', 'select.invert', 'tool.transform', 'tool.crop'],
+    priority: 70,
   },
   {
     label: 'Assist',
     ids: ['assist.symmetry', 'assist.ruler', 'assist.ellipse', 'assist.perspective', 'assist.grid'],
+    priority: 50,
   },
-  { label: 'Drawing modes', ids: ['mode.stabilizer', 'mode.predictive'] },
+  { label: 'Drawing modes', ids: ['mode.stabilizer', 'mode.predictive'], priority: 40 },
   {
     label: 'Panels',
     ids: [
@@ -128,38 +148,342 @@ const GROUPS: { label: string; ids: string[] }[] = [
       'panel.animation',
       'panel.reference',
     ],
+    priority: 30,
   },
-  { label: 'Focus', ids: ['view.focus', 'app.preferences'] },
+  { label: 'Focus', ids: ['view.focus', 'app.preferences'], priority: 80 },
 ];
+
+const MORE_WIDTH = 48;
 
 export function CommandBar() {
   useCommandState();
+  const nav = useRef<HTMLElement>(null);
+  const widths = useRef(new Map<string, number>());
+  const [hidden, setHidden] = useState<string[]>([]);
+  const [more, setMore] = useState<{ x: number; y: number } | null>(null);
+  const groups = GROUPS.map((g) => ({ ...g, ids: g.ids.filter((id) => getCommand(id)) })).filter(
+    (g) => g.ids.length,
+  );
+
+  const recompute = () => {
+    const el = nav.current;
+    if (!el) return;
+    for (const child of el.querySelectorAll<HTMLElement>('[data-group]'))
+      widths.current.set(child.dataset.group!, child.offsetWidth);
+    if (groups.some((g) => !widths.current.has(g.label))) return;
+    const style = getComputedStyle(el);
+    const avail = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    let total = groups.reduce((sum, g) => sum + widths.current.get(g.label)!, 0);
+    const next: string[] = [];
+    const byPriority = [...groups].sort((a, b) => a.priority - b.priority);
+    for (const g of byPriority) {
+      if (total + (next.length ? MORE_WIDTH : 0) <= avail) break;
+      if (g.priority >= 100) break;
+      next.push(g.label);
+      total -= widths.current.get(g.label)!;
+    }
+    if (next.join('|') !== hidden.join('|')) setHidden(next);
+  };
+
+  useLayoutEffect(recompute);
+  useEffect(() => {
+    const el = nav.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => recompute());
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+
+  const visible = groups.filter((g) => !hidden.includes(g.label));
+  const overflow = groups.filter((g) => hidden.includes(g.label));
   return (
-    <nav className="commandbar" aria-label="Commands">
-      {GROUPS.map((g, i) => {
-        const ids = g.ids.filter((id) => getCommand(id));
-        if (!ids.length) return null;
-        return (
-          <div key={g.label} className="cmd-group" role="group" aria-label={g.label}>
-            {i > 0 ? <span className="cmd-sep" aria-hidden="true" /> : null}
-            {ids.map((id) => (
-              <CommandButton key={id} id={id} />
-            ))}
-          </div>
-        );
-      })}
+    <nav className="commandbar" aria-label="Commands" ref={nav}>
+      {visible.map((g, i) => (
+        <div key={g.label} className="cmd-group" role="group" aria-label={g.label} data-group={g.label}>
+          {i > 0 ? <span className="cmd-sep" aria-hidden="true" /> : null}
+          {g.ids.map((id) => (
+            <CommandButton key={id} id={id} />
+          ))}
+        </div>
+      ))}
+      {overflow.length ? (
+        <div className="cmd-group cmd-more">
+          <span className="cmd-sep" aria-hidden="true" />
+          <IconButton
+            icon="more"
+            label="More commands"
+            tip={`More: ${overflow.map((g) => g.label).join(', ')}`}
+            pressed={!!more}
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setMore(more ? null : { x: r.right, y: r.bottom + 4 });
+            }}
+            testId="cmd-more"
+          />
+        </div>
+      ) : null}
+      {more && overflow.length ? (
+        <MoreMenu groups={overflow} x={more.x} y={more.y} onClose={() => setMore(null)} />
+      ) : null}
     </nav>
   );
 }
 
-const RAIL: string[][] = [
-  ['tool.brush', 'tool.eraser', 'tool.eyedropper'],
-  ['tool.fill', 'tool.gradient'],
-  ['tool.select-rect', 'tool.select-ellipse', 'tool.select-lasso', 'tool.select-polygon', 'tool.select-wand'],
-  ['tool.transform', 'tool.crop'],
-  ['tool.line', 'tool.rect', 'tool.ellipse', 'tool.polygon', 'tool.polyline', 'tool.text'],
-  ['tool.pan', 'tool.zoom', 'tool.rotate'],
+function MoreMenu(props: {
+  groups: { label: string; ids: string[] }[];
+  x: number;
+  y: number;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.querySelector<HTMLButtonElement>('[role^=menuitem]:not(:disabled)')?.focus();
+    const down = (e: PointerEvent) => {
+      if (
+        !ref.current?.contains(e.target as Node) &&
+        !(e.target as HTMLElement).closest('[data-testid=cmd-more]')
+      )
+        props.onClose();
+    };
+    window.addEventListener('pointerdown', down, true);
+    return () => window.removeEventListener('pointerdown', down, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className="menu more-menu"
+      role="menu"
+      aria-label="More commands"
+      style={{ right: Math.max(8, window.innerWidth - props.x), top: props.y }}
+      onKeyDown={(e) => {
+        const items = [
+          ...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role^=menuitem]:not(:disabled)'),
+        ];
+        const i = items.indexOf(document.activeElement as HTMLButtonElement);
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+        } else if (e.key === 'Escape' || e.key === 'Tab') {
+          e.preventDefault();
+          props.onClose();
+          document.querySelector<HTMLElement>('[data-testid=cmd-more]')?.focus();
+        }
+        e.stopPropagation();
+      }}
+    >
+      {props.groups.map((g) => (
+        <div key={g.label} role="group" aria-label={g.label}>
+          <div className="menu-heading" aria-hidden="true">
+            {g.label}
+          </div>
+          {g.ids.map((id) => {
+            const c = getCommand(id)!;
+            const checked = c.checked ? c.checked() : undefined;
+            const enabled = c.enabled ? c.enabled() : true;
+            return (
+              <button
+                key={id}
+                type="button"
+                role={checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                aria-checked={checked}
+                disabled={!enabled}
+                className="menu-item more-menu-item"
+                onClick={() => {
+                  props.onClose();
+                  runCommand(id);
+                }}
+              >
+                <Icon name={c.icon ?? 'more'} size={16} />
+                <span>{c.label}</span>
+                {checked ? <Icon name="check" size={14} /> : null}
+                {shortcutsFor(id)[0] ? <kbd>{shortcutsFor(id)[0]}</kbd> : null}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface RailGroupDef {
+  id: string;
+  label: string;
+  tools: ToolId[];
+}
+type RailEntry = ToolId | RailGroupDef;
+
+/** Related tools share one rail button with a flyout, so the rail fits short (768 px) screens. */
+const RAIL: RailEntry[][] = [
+  ['brush', 'eraser', 'eyedropper'],
+  ['fill', 'gradient'],
+  [
+    {
+      id: 'select',
+      label: 'Selection tools',
+      tools: ['select-rect', 'select-ellipse', 'select-lasso', 'select-polygon', 'select-wand'],
+    },
+  ],
+  ['transform', 'crop'],
+  [{ id: 'shapes', label: 'Shape tools', tools: ['line', 'rect', 'ellipse', 'polygon', 'polyline'] }, 'text'],
+  [{ id: 'nav', label: 'Navigation tools', tools: ['pan', 'zoom', 'rotate'] }],
 ];
+
+const lastInGroup = new Map<string, ToolId>();
+
+function RailGroup({ group }: { group: RailGroupDef }) {
+  useCommandState();
+  const tool = useUi((s) => s.tool);
+  const leftHanded = usePrefs((s) => s.prefs.leftHanded);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const hold = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const opened = useRef(false);
+  if (group.tools.includes(tool)) lastInGroup.set(group.id, tool);
+  const current = lastInGroup.get(group.id) ?? group.tools[0];
+  const cmd = getCommand(`tool.${current}`);
+  const active = group.tools.includes(tool);
+  const open = () => {
+    const r = btn.current!.getBoundingClientRect();
+    setMenu({ x: leftHanded ? r.left - 4 : r.right + 4, y: r.top });
+  };
+  const close = (refocus = true) => {
+    setMenu(null);
+    if (refocus) btn.current?.focus();
+  };
+  return (
+    <>
+      <button
+        ref={btn}
+        type="button"
+        className={`icon-btn rail-group-btn ${active ? 'is-on' : ''}`}
+        aria-label={`${group.label}: ${cmd?.label ?? current}`}
+        aria-pressed={active}
+        aria-haspopup="menu"
+        aria-expanded={!!menu}
+        data-tip={`${tooltipFor(`tool.${current}`)} — right-click, hold or press → for all ${group.label.toLowerCase()}`}
+        data-testid={`rail-group-${group.id}`}
+        onClick={() => {
+          if (opened.current) {
+            opened.current = false;
+            return;
+          }
+          runCommand(`tool.${current}`);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          open();
+        }}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          hold.current = setTimeout(() => {
+            opened.current = true;
+            open();
+          }, 380);
+        }}
+        onPointerUp={() => hold.current && clearTimeout(hold.current)}
+        onPointerLeave={() => hold.current && clearTimeout(hold.current)}
+        onKeyDown={(e) => {
+          if (e.key === (leftHanded ? 'ArrowLeft' : 'ArrowRight') || (e.altKey && e.key === 'ArrowDown')) {
+            e.preventDefault();
+            open();
+          }
+        }}
+      >
+        <Icon name={cmd?.icon ?? 'more'} size={19} />
+        <span className="rail-group-mark" aria-hidden="true" />
+      </button>
+      {menu ? (
+        <ToolFlyout
+          group={group}
+          current={tool}
+          x={menu.x}
+          y={menu.y}
+          alignRight={leftHanded}
+          onPick={(id) => {
+            lastInGroup.set(group.id, id);
+            runCommand(`tool.${id}`);
+            close();
+          }}
+          onClose={close}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function ToolFlyout(props: {
+  group: RailGroupDef;
+  current: ToolId;
+  x: number;
+  y: number;
+  alignRight: boolean;
+  onPick: (id: ToolId) => void;
+  onClose: (refocus?: boolean) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const items = () => [...(ref.current?.querySelectorAll<HTMLButtonElement>('[role=menuitemradio]') ?? [])];
+    (items().find((b) => b.getAttribute('aria-checked') === 'true') ?? items()[0])?.focus();
+    const down = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) props.onClose(false);
+    };
+    window.addEventListener('pointerdown', down, true);
+    return () => window.removeEventListener('pointerdown', down, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className="menu tool-flyout"
+      role="menu"
+      aria-label={props.group.label}
+      style={
+        props.alignRight
+          ? { right: window.innerWidth - props.x, top: props.y }
+          : { left: props.x, top: props.y }
+      }
+      onKeyDown={(e) => {
+        const items = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role=menuitemradio]')];
+        const i = items.indexOf(document.activeElement as HTMLButtonElement);
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+        } else if (
+          e.key === 'Escape' ||
+          e.key === 'Tab' ||
+          e.key === (props.alignRight ? 'ArrowRight' : 'ArrowLeft')
+        ) {
+          e.preventDefault();
+          props.onClose();
+        }
+        e.stopPropagation();
+      }}
+      data-testid={`flyout-${props.group.id}`}
+    >
+      {props.group.tools.map((id) => {
+        const c = getCommand(`tool.${id}`);
+        if (!c) return null;
+        const keys = shortcutsFor(c.id);
+        return (
+          <button
+            key={id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={props.current === id}
+            className={`menu-item tool-flyout-item ${props.current === id ? 'is-on' : ''}`}
+            onClick={() => props.onPick(id)}
+          >
+            <Icon name={c.icon ?? 'more'} size={16} />
+            <span>{c.label}</span>
+            {keys.length ? <kbd>{keys[0]}</kbd> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function ToolRail() {
   useCommandState();
@@ -170,11 +494,15 @@ export function ToolRail() {
       <div className="rail-tools" role="toolbar" aria-orientation="vertical" aria-label="Drawing tools">
         {RAIL.map((group, gi) => (
           <div className="rail-group" key={gi}>
-            {group
-              .filter((id) => getCommand(id))
-              .map((id) => (
-                <CommandButton key={id} id={id} size={19} />
-              ))}
+            {group.map((entry) =>
+              typeof entry === 'string' ? (
+                getCommand(`tool.${entry}`) ? (
+                  <CommandButton key={entry} id={`tool.${entry}`} size={19} />
+                ) : null
+              ) : (
+                <RailGroup key={entry.id} group={entry} />
+              ),
+            )}
           </div>
         ))}
       </div>
@@ -216,7 +544,7 @@ export function StatusBar() {
   }, [s, s?.view.zoom]);
   if (!s) {
     return (
-      <footer className="statusbar">
+      <footer className="statusbar" aria-label="Status">
         <span className="status-item">No document open</span>
       </footer>
     );

@@ -115,17 +115,63 @@ function LayerRow(props: {
       ? `drop-${props.drag.where}`
       : '';
   const label = LABEL_COLORS.find((l) => l.id === node.label);
+  const meta = [
+    node.blendMode !== 'normal' ? BLEND_MODES.find((b) => b.id === node.blendMode)?.label : '',
+    node.opacity < 1 ? `${Math.round(node.opacity * 100)}%` : '',
+    node.kind === 'group' && !node.passThrough ? 'isolated' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const thumb =
+    node.kind === 'raster' ? (
+      <span className={`layer-thumb-wrap ${node.clip ? 'is-clipped' : ''}`}>
+        {node.clip ? <Icon name="clip" size={12} className="clip-mark" /> : null}
+        <Thumbnail
+          layer={node}
+          version={node.pixels.version}
+          docW={session.doc.width}
+          docH={session.doc.height}
+        />
+      </span>
+    ) : (
+      <span className="layer-thumb-wrap is-group">
+        <Icon name="group" size={20} />
+      </span>
+    );
+  const text = (
+    <span className="layer-text">
+      {editing ? (
+        <input
+          className="layer-name-input"
+          value={name}
+          autoFocus
+          aria-label="Layer name"
+          onChange={(e) => setName(e.target.value)}
+          onBlur={commitName}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitName();
+            if (e.key === 'Escape') {
+              setName(node.name);
+              setEditing(false);
+            }
+            e.stopPropagation();
+          }}
+        />
+      ) : (
+        <span className="layer-name">{node.name}</span>
+      )}
+      <span className="layer-meta">{meta}</span>
+    </span>
+  );
   return (
     <div
-      role="option"
-      aria-selected={active}
-      tabIndex={active ? 0 : -1}
+      role="listitem"
       className={`layer-row ${active ? 'is-active' : ''} ${!node.visible ? 'is-hidden' : ''} ${dropClass} ${props.drag?.id === node.id ? 'is-dragging' : ''}`}
       data-layer-id={node.id}
       data-testid="layer-row"
       style={{ paddingLeft: 6 + depth * 14 }}
       onPointerDown={(e) => {
-        if ((e.target as HTMLElement).closest('button, input')) return;
+        if ((e.target as HTMLElement).closest('.layer-side-btn, input')) return;
         A.selectLayer(node.id);
         props.onDragStart(node.id, e);
       }}
@@ -135,23 +181,8 @@ function LayerRow(props: {
         props.onMenu(node.id, e.clientX, e.clientY);
       }}
       onDoubleClick={(e) => {
-        if ((e.target as HTMLElement).closest('button')) return;
+        if ((e.target as HTMLElement).closest('.layer-side-btn')) return;
         setEditing(true);
-      }}
-      onKeyDown={(e) => {
-        if (editing) return;
-        if (e.key === 'F2' || e.key === 'Enter') {
-          e.preventDefault();
-          setEditing(true);
-        }
-        if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          A.selectLayerRelative(1);
-        }
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          A.selectLayerRelative(-1);
-        }
       }}
     >
       {label && label.id !== 'none' ? (
@@ -159,7 +190,7 @@ function LayerRow(props: {
       ) : null}
       <button
         type="button"
-        className="mini-btn layer-eye"
+        className="mini-btn layer-eye layer-side-btn"
         aria-label={node.visible ? `Hide ${node.name}` : `Show ${node.name}`}
         aria-pressed={node.visible}
         data-tip={node.visible ? 'Hide layer' : 'Show layer'}
@@ -173,8 +204,8 @@ function LayerRow(props: {
       {node.kind === 'group' ? (
         <button
           type="button"
-          className="mini-btn"
-          aria-label={node.expanded ? 'Collapse group' : 'Expand group'}
+          className="mini-btn layer-side-btn"
+          aria-label={node.expanded ? `Collapse ${node.name}` : `Expand ${node.name}`}
           aria-expanded={node.expanded}
           onClick={() => {
             node.expanded = !node.expanded;
@@ -185,25 +216,44 @@ function LayerRow(props: {
           <Icon name={node.expanded ? 'chevronDown' : 'chevronRight'} size={14} />
         </button>
       ) : null}
-      {node.kind === 'raster' ? (
-        <span className={`layer-thumb-wrap ${node.clip ? 'is-clipped' : ''}`}>
-          {node.clip ? <Icon name="clip" size={12} className="clip-mark" /> : null}
-          <Thumbnail
-            layer={node}
-            version={node.pixels.version}
-            docW={session.doc.width}
-            docH={session.doc.height}
-          />
+      {editing ? (
+        <span className="layer-select">
+          {thumb}
+          {text}
         </span>
       ) : (
-        <span className="layer-thumb-wrap is-group">
-          <Icon name="group" size={20} />
-        </span>
+        <button
+          type="button"
+          className="layer-select"
+          aria-pressed={active}
+          aria-label={`${node.name}${node.kind === 'group' ? ' (group)' : ''}${meta ? `, ${meta}` : ''}`}
+          tabIndex={active ? 0 : -1}
+          data-layer-select={node.id}
+          onClick={() => A.selectLayer(node.id)}
+          onKeyDown={(e) => {
+            if (e.key === 'F2') {
+              e.preventDefault();
+              setEditing(true);
+            }
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              A.selectLayerRelative(e.key === 'ArrowUp' ? 1 : -1);
+              // keep keyboard focus on the newly active layer
+              requestAnimationFrame(() => {
+                const id = session.doc.activeLayerId;
+                document.querySelector<HTMLElement>(`[data-layer-select="${id}"]`)?.focus();
+              });
+            }
+          }}
+        >
+          {thumb}
+          {text}
+        </button>
       )}
       {node.kind === 'raster' && node.mask ? (
         <button
           type="button"
-          className={`mask-chip ${node.editMask ? 'is-on' : ''} ${!node.maskEnabled ? 'is-disabled' : ''}`}
+          className={`mask-chip layer-side-btn ${node.editMask ? 'is-on' : ''} ${!node.maskEnabled ? 'is-disabled' : ''}`}
           aria-label={
             node.editMask ? 'Painting on mask — click to paint on pixels' : 'Click to paint on the mask'
           }
@@ -225,33 +275,6 @@ function LayerRow(props: {
           <Icon name="mask" size={14} />
         </button>
       ) : null}
-      <div className="layer-text">
-        {editing ? (
-          <input
-            className="layer-name-input"
-            value={name}
-            autoFocus
-            aria-label="Layer name"
-            onChange={(e) => setName(e.target.value)}
-            onBlur={commitName}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitName();
-              if (e.key === 'Escape') {
-                setName(node.name);
-                setEditing(false);
-              }
-              e.stopPropagation();
-            }}
-          />
-        ) : (
-          <span className="layer-name">{node.name}</span>
-        )}
-        <span className="layer-meta">
-          {node.blendMode !== 'normal' ? BLEND_MODES.find((b) => b.id === node.blendMode)?.label : ''}
-          {node.opacity < 1 ? ` ${Math.round(node.opacity * 100)}%` : ''}
-          {node.kind === 'group' && !node.passThrough ? ' isolated' : ''}
-        </span>
-      </div>
       <span className="layer-flags">
         {node.kind === 'raster' && node.alphaLock ? (
           <Icon name="alphaLock" size={13} title="Transparency locked" />
@@ -452,7 +475,7 @@ export function LayersPanel() {
           </div>
         </div>
       ) : null}
-      <div className="layer-list" role="listbox" aria-label="Layers" ref={listRef} data-testid="layer-list">
+      <div className="layer-list" role="list" aria-label="Layers" ref={listRef} data-testid="layer-list">
         {rows.map(({ node, depth }) => (
           <LayerRow
             key={node.id}
@@ -467,7 +490,7 @@ export function LayersPanel() {
         ))}
         <div
           className={`layer-row layer-bg ${doc.background.transparent ? 'is-transparent' : ''}`}
-          aria-label="Background"
+          role="listitem"
         >
           <span className="layer-thumb-wrap">
             <span

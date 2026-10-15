@@ -201,6 +201,31 @@ describe('fill, gradient and adjustments', () => {
   });
 });
 
+describe('hue / saturation', () => {
+  it('shifts hue by a third turn, removes saturation and keeps alpha', () => {
+    const doc = RasterDocument.createDefault({ width: 64, height: 64 });
+    const l = doc.activeRaster!;
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) l.pixels.setPixel(x, y, 255, 0, 0, 200);
+    applyAdjustment(doc, l, new TileDiffRecorder(l.pixels), {
+      kind: 'hue-saturation',
+      hue: 1 / 3,
+      saturation: 0,
+      lightness: 0,
+    });
+    expect(l.pixels.getPixel(3, 3)).toEqual([0, 255, 0, 200]);
+    applyAdjustment(doc, l, new TileDiffRecorder(l.pixels), {
+      kind: 'hue-saturation',
+      hue: 0,
+      saturation: -1,
+      lightness: 0,
+    });
+    const [r, g, b, a] = l.pixels.getPixel(3, 3);
+    expect(r).toBe(g);
+    expect(g).toBe(b);
+    expect(a).toBe(200);
+  });
+});
+
 describe('document operations', () => {
   it('rotate 90° swaps dimensions and moves pixels; undo restores', () => {
     const { doc, l } = docWithSquare();

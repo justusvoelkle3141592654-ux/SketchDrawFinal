@@ -25,6 +25,8 @@ import { setSymmetry } from '../app/extended';
 
 function Mini(props: {
   label: string;
+  /** Accessible name when the visible label is empty or too short. */
+  ariaLabel?: string;
   value: number;
   min: number;
   max: number;
@@ -48,12 +50,12 @@ function Mini(props: {
         value={props.value}
         onChange={(e) => props.onChange(Number(e.target.value))}
         style={{ width: props.width ?? 90 }}
-        aria-label={props.label}
+        aria-label={props.ariaLabel ?? props.label}
       />
       <input
         className="tob-num"
         value={text}
-        aria-label={`${props.label} value`}
+        aria-label={`${props.ariaLabel ?? props.label} value`}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         onBlur={() => {
@@ -180,6 +182,7 @@ function BrushOptions() {
       {prefs.stabilizer.mode !== 'off' ? (
         <Mini
           label=""
+          ariaLabel="Stabiliser amount"
           value={prefs.stabilizer.amount}
           min={0}
           max={1}

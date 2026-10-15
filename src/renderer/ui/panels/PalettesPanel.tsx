@@ -118,13 +118,29 @@ export function PalettesPanel() {
         )}
         <IconButton icon="chevronRight" label="Next palette" onClick={() => step(1)} size={16} />
       </div>
-      <div className="palette-grid" role="listbox" aria-label={`${pal.name} colours`}>
+      <div
+        className="palette-grid"
+        role="group"
+        aria-label={`${pal.name} colours. Arrow keys move between swatches.`}
+        onKeyDown={(e) => {
+          if (!e.key.startsWith('Arrow')) return;
+          const items = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('.palette-swatch')];
+          const i = items.indexOf(document.activeElement as HTMLButtonElement);
+          if (i < 0) return;
+          e.preventDefault();
+          // up/down jump one visual row
+          const cols = Math.max(1, items.filter((x) => x.offsetTop === items[0].offsetTop).length);
+          const d =
+            e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowDown' ? cols : -cols;
+          items[Math.min(items.length - 1, Math.max(0, i + d))]?.focus();
+        }}
+      >
         {pal.colors.map((h, i) => (
           <button
             key={`${h}-${i}`}
             type="button"
-            role="option"
-            aria-selected={h === rgbToHex(fg)}
+            tabIndex={i === Math.max(0, pal.colors.indexOf(rgbToHex(fg))) ? 0 : -1}
+            aria-pressed={h === rgbToHex(fg)}
             className={`palette-swatch ${h === rgbToHex(fg) ? 'is-on' : ''}`}
             style={{ background: h }}
             aria-label={h}

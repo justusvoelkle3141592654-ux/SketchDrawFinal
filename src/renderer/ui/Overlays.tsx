@@ -168,14 +168,14 @@ export function Modal(props: {
         style={{ width: props.width }}
         data-testid={props.testId}
       >
-        <header className="modal-head">
+        <div className="modal-head">
           <h2 id={titleId}>{props.title}</h2>
           <button type="button" className="modal-close icon-btn" aria-label="Close" onClick={props.onClose}>
             <Icon name="close" size={16} />
           </button>
-        </header>
+        </div>
         <div className="modal-body">{props.children}</div>
-        {props.footer ? <footer className="modal-foot">{props.footer}</footer> : null}
+        {props.footer ? <div className="modal-foot">{props.footer}</div> : null}
       </div>
     </div>
   );

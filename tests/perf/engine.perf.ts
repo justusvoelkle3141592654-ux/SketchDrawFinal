@@ -8,6 +8,26 @@ import { cloneBrush } from '../../src/renderer/engine/brush/schema';
 import { createRasterLayer } from '../../src/renderer/engine/layers';
 import { serializeDocumentSync, deserializeDocument } from '../../src/renderer/engine/io/cforge';
 import type { StrokeSample } from '../../src/renderer/engine/stroke/pipeline';
+import { TileDiffRecorder } from '../../src/renderer/engine/history';
+import {
+  applyAdjustment,
+  drawTransformedBlock,
+  extractBlock,
+  fillCoverage,
+  mat3FromAffine,
+  resizeImage,
+  softenRegion,
+  type Adjustment,
+} from '../../src/renderer/engine/pixel-ops';
+import {
+  ellipsePolygon,
+  featherMask,
+  floodRegion,
+  growMask,
+  maskOutline,
+  polygonMask,
+  rasterizePolygon,
+} from '../../src/renderer/engine/selection';
 
 const W = 3000;
 const H = 2000;
@@ -142,4 +162,88 @@ test('save / open a 3000×2000 document with 3 painted layers', () => {
   console.log(
     `serialise (sync, with previews): ${(t1 - t0).toFixed(0)} ms → ${(bytes.length / 1048576).toFixed(1)} MB; deserialise: ${(t2 - t1).toFixed(0)} ms`,
   );
+});
+
+// ------------------------------------------------------------------ selection, fill, transform, adjustments
+
+function paintedDoc() {
+  const doc = RasterDocument.createDefault({ width: W, height: H });
+  const layer = doc.activeRaster!;
+  // a filled ellipse with an outline, like line art with a coloured area
+  const rec = new TileDiffRecorder(layer.pixels);
+  const cov = rasterizePolygon(ellipsePolygon(1500, 1000, 1100, 700), { x: 0, y: 0, w: W, h: H }, true);
+  const dense = new Uint8ClampedArray(W * H);
+  for (let i = 0; i < dense.length; i++) dense[i] = cov[i] * 255;
+  fillCoverage(doc, layer, rec, dense, { r: 0.8, g: 0.4, b: 0.2 }, 1);
+  return { doc, layer };
+}
+
+function ms(fn: () => void): number {
+  const t0 = performance.now();
+  fn();
+  return performance.now() - t0;
+}
+
+test('selection, fill, transform and adjustment operations on a 3000×2000 document', () => {
+  const { doc, layer } = paintedDoc();
+  const rows: string[] = [];
+  const src = layer.pixels.readRect(doc.bounds);
+  let region: Uint8Array = new Uint8Array(0);
+  rows.push(
+    `flood region (contiguous, 12 %): ${ms(() => (region = floodRegion(src, W, H, 1500, 1000, 0.12, true))).toFixed(0)} ms`,
+  );
+  rows.push(`fill coverage soften (expand 1 px): ${ms(() => softenRegion(region, W, H, 1)).toFixed(0)} ms`);
+  let mask = polygonMask(doc, ellipsePolygon(1500, 1000, 900, 600), true);
+  rows.push(
+    `ellipse selection mask (anti-aliased): ${ms(() => (mask = polygonMask(doc, ellipsePolygon(1500, 1000, 900, 600), true))).toFixed(0)} ms`,
+  );
+  rows.push(`feather selection 8 px: ${ms(() => featherMask(doc, mask, 8)).toFixed(0)} ms`);
+  rows.push(`expand selection 4 px: ${ms(() => growMask(doc, mask, 4)).toFixed(0)} ms`);
+  rows.push(`selection outline (marching ants segments): ${ms(() => maskOutline(mask, W, H)).toFixed(0)} ms`);
+  const block = extractBlock(layer.pixels, { x: 500, y: 400, w: 1000, h: 1000 }, null);
+  rows.push(
+    `transform 1000×1000 block, rotate 20° + scale 1.2: ${ms(() => {
+      const a = (20 * Math.PI) / 180;
+      const m = mat3FromAffine(
+        1.2 * Math.cos(a),
+        1.2 * Math.sin(a),
+        -1.2 * Math.sin(a),
+        1.2 * Math.cos(a),
+        800,
+        300,
+      );
+      const out = createRasterLayer('t', doc.tileSize);
+      drawTransformedBlock(out.pixels, new TileDiffRecorder(out.pixels), block, m, doc.bounds);
+    }).toFixed(0)} ms`,
+  );
+  for (const adj of [
+    { kind: 'brightness-contrast', brightness: 0.2, contrast: 0.3 },
+    { kind: 'hue-saturation', hue: 0.1, saturation: 0.2, lightness: 0 },
+  ] as Adjustment[]) {
+    rows.push(
+      `${adj.kind} on the layer: ${ms(() => applyAdjustment(doc, layer, new TileDiffRecorder(layer.pixels), adj)).toFixed(0)} ms`,
+    );
+  }
+  // worst case for the colour cache: every pixel a different colour
+  const noisy = RasterDocument.createDefault({ width: W, height: H });
+  const nl = noisy.activeRaster!;
+  let seed = 1;
+  for (let ty = 0; ty < Math.ceil(H / 256); ty++)
+    for (let tx = 0; tx < Math.ceil(W / 256); tx++) {
+      const t = nl.pixels.getOrCreate(tx, ty);
+      for (let i = 0; i < t.length; i++)
+        t[i] = (i & 3) === 3 ? 255 : (seed = (seed * 1103515245 + 12345) >>> 0) >>> 24;
+    }
+  rows.push(
+    `hue-saturation, every pixel a different colour: ${ms(() =>
+      applyAdjustment(noisy, nl, new TileDiffRecorder(nl.pixels), {
+        kind: 'hue-saturation',
+        hue: 0.1,
+        saturation: 0.2,
+        lightness: 0,
+      }),
+    ).toFixed(0)} ms`,
+  );
+  rows.push(`image size 3000×2000 → 1500×1000: ${ms(() => resizeImage(doc, 1500, 1000)).toFixed(0)} ms`);
+  console.log(`\n${rows.join('\n')}`);
 });

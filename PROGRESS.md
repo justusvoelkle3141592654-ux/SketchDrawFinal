@@ -100,3 +100,38 @@ Changed: `App.tsx`, `extended.ts`, `registry.ts`, `CanvasView.tsx`, `Overlays.ts
 
 Milestone 4: reference-image panel, workspace layouts, accessibility audit (contrast, focus order, names, target sizes), performance profiling of fill/selection/adjustments, error surfaces.
 
+---
+
+## Milestone 4 — polished desktop app ✅
+
+### Completed
+
+* Reference-image panel: add from file, clipboard or drag & drop; up to 12 per document, stored unchanged in the `.cforge` file (`resources/references/*`, `features.references`); pan, wheel zoom, fit, keyboard zoom/pan; view-only flip and greyscale; colour picking (toggle, Alt+click, or eyedropper tool); add/remove are undoable document changes; commands in the command search.
+* Error surfaces: error boundaries around every panel (inline message + *Try again*), around dialogs (dialog closes with a notice) and around the workspace (continue or reload); uncaught errors and rejected promises become rate-limited error notices; the main process offers *Reload* when the renderer crashes and *Wait/Reload* when it hangs (prompt withdrawn automatically when it responds again).
+* Accessibility: axe-core audit of 17 UI states (start screen, dialogs, workspace with all panels, preferences tabs, Brush Lab, command search, tool options, light theme, roomy density) — all fixed to zero violations; fixes included valid tab/list semantics (document tabs, brush list, layer list, palette swatches — no nested interactive controls), landmark labels, heading order, text contrast (secondary text and light-theme accent tokens raised to ≥ 4.5:1), minimum 24 px pointer targets, a page heading. Keyboard: `Tab` no longer toggles Focus Canvas unless the canvas has focus, so the whole interface is reachable; a recorded Tab walk visits title bar → command bar → tool rail → tool options → pucks → Orbit → panels → status bar with a visible focus ring on every stop; roving tab stops plus arrow keys in brush/layer/palette lists; global shortcuts ignore keys a focused control already handled.
+* Small windows and scaling: related rail tools are grouped with flyouts (selection, shapes, navigation), so the rail fits 1366 × 768 and 125 % scaling; command-bar groups that do not fit move by priority into a *More commands* menu; the tool-options strip wraps instead of scrolling. Checked at 100 % (1366 × 768 and the 1024 × 640 minimum), 125 % (1093 × 600 DIP), 150 % and 200 % (1280 × 720 DIP): no clipped controls, and the canvas backing store matches the device pixel ratio (e.g. 944 × 612 CSS px → 1888 × 1224 px at 200 %).
+* Performance profiling of selection, fill, transform and adjustment operations on 3000 × 2000 (see `docs/performance.md`), with three optimisations: feather 589 → 165 ms, expand 672 → 117 ms, hue/saturation 699 → 124 ms.
+* Already present from earlier milestones: docking/floating panels with layout reset, status bar, compact/roomy density, preferences, full screen, mirror view, canvas grid/pixel grid, clipboard paste, drag & drop, autosave/recovery, recent files (missing files shown disabled), export name templates, readable errors for invalid or newer files, history memory budget and document memory estimate.
+
+### Commands run and results
+
+| Command | Result |
+|---|---|
+| `npm run lint` | 0 errors, 0 warnings |
+| `npm run typecheck` | passes |
+| `npm test` | 9 files, 92 tests passed (new: grow/shrink equal a direct min/max filter incl. canvas border, select-all stays complete when contracted/feathered, hue/saturation shift and desaturation) |
+| `npm run test:e2e` | 5 Electron tests passed under Xvfb (new: accessibility test running axe-core in dark/light, compact/roomy, dialogs, a tool flyout and the overflow menu, plus choosing the magic wand from the flyout) |
+| `npm run perf` | numbers in `docs/performance.md` |
+| `npx prettier --check .` | clean |
+| Manual (Xvfb scripts) | reference panel: clipboard paste of a copied canvas, colour pick, save → close → reopen keeps the reference, remove + undo; error probes (a panel forced to throw shows its message while the canvas and other panels keep working; uncaught error and rejected promise show notices); brush list click/arrow keys/F2 rename/favourite/double-click Brush Lab/drag reorder; layer select/arrow keys/eye/rename; palette swatch keyboard pick; flyouts by right-click and keyboard; overflow menu at 1093 px width |
+
+### Known limitations
+
+* Crash and hang dialogs in the main process were not triggered in a real crash here (only the renderer-side error paths were exercised).
+* The accessibility audit is automated (axe-core) plus keyboard walks; it was not checked with a screen reader.
+* Windows display scaling was emulated with Chromium's `--force-device-scale-factor` on Linux, not on a Windows machine.
+
+### Next concrete action
+
+Milestone 5: flipbook animation (frames, exposure, playback, onion skin), PNG-sequence and GIF export, time-lapse; then Windows packaging.
+

@@ -41,6 +41,26 @@ Before the compositor fast path and LUT/undo optimisations, the same measurement
 
 Save/open (3 layers, 96 tiles each filled with noisy data — the worst case for compression): synchronous serialisation including previews 5.7 s producing 18.6 MB; deserialisation 0.97 s. In the app, compression runs on worker threads; only tile referencing and the preview composite run on the main thread. Real artwork compresses much faster than this noise pattern.
 
+## Selection, fill, transform and adjustments (3000 × 2000)
+
+Median of three runs of `npm run perf` (min–max in brackets). The test layer holds a large anti-aliased ellipse; the "different colour" row fills every pixel with noise. Run-to-run variation on this VM is up to about ±40 %.
+
+| Operation | Median | Range |
+|---|---|---|
+| Flood region for fill / magic wand (contiguous, 12 % tolerance) | 70 ms | 66–111 ms |
+| Fill coverage with 1 px expansion | 93 ms | 68–93 ms |
+| Anti-aliased ellipse selection mask | 122 ms | 111–192 ms |
+| Feather selection by 8 px | 165 ms | 159–171 ms |
+| Expand selection by 4 px | 117 ms | 111–172 ms |
+| Selection outline segments (marching ants, computed once per selection change) | 82 ms | 81–125 ms |
+| Transform commit: 1000 × 1000 block rotated 20° and scaled 1.2× | 217 ms | 197–244 ms |
+| Brightness/contrast on the layer | 71 ms | 60–95 ms |
+| Hue/saturation on the layer | 124 ms | 82–125 ms |
+| Hue/saturation, every pixel a different colour | 247 ms | 226–251 ms |
+| Image size 3000 × 2000 → 1500 × 1000 | 191 ms | 166–205 ms |
+
+Optimisations made after the first measurement (single run before → median after): feather 589 → 165 ms and expand 672 → 117 ms (work restricted to the selection's bounds plus the filter reach; expand/contract uses a van Herk/Gil-Werman sliding min/max whose cost does not grow with the radius); hue/saturation 699 → 124 ms (per-colour result cache, allocation-free conversion of cached colours). The adjustment dialogs debounce their live preview by 50 ms and revert the previous preview before applying new values.
+
 ## Interpretation and limits
 
 * With pens reporting ~133–240 Hz and coalesced batches of a few samples, the per-event engine cost of the round, textured and smudge brushes above stays in the low milliseconds on this VM. **Round Bristle** (a 60 px generated-tip mixing brush) is the heaviest built-in preset at ~12 ms per 4-sample event here; on slower machines it may lag behind very fast strokes.

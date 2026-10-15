@@ -382,7 +382,7 @@ function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
   };
   return (
     <div className="lab-grid">
-      <h4>Shape</h4>
+      <h3>Shape</h3>
       <Segmented
         label="Tip shape"
         value={b.tip.shape}
@@ -441,7 +441,7 @@ function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
           </Button>
         </div>
       )}
-      <h4>Size and form</h4>
+      <h3>Size and form</h3>
       <Slider
         label="Diameter"
         value={b.diameter}
@@ -509,7 +509,7 @@ function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
 function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
   return (
     <div className="lab-grid">
-      <h4>Paint</h4>
+      <h3>Paint</h3>
       <Slider
         label="Opacity"
         value={b.opacity}
@@ -561,7 +561,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
         ]}
         onChange={(v) => patch((x) => void (x.stroke.blendMode = v))}
       />
-      <h4>Dabs</h4>
+      <h3>Dabs</h3>
       <Slider
         label="Spacing"
         value={b.stroke.spacing}
@@ -611,7 +611,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
         unit="°"
         onChange={(v) => patch((x) => void (x.rotationJitter = v))}
       />
-      <h4>Smoothing</h4>
+      <h3>Smoothing</h3>
       <Select
         label="Stabiliser"
         value={b.stroke.stabilizer}
@@ -650,7 +650,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
         hint="Keeps adding dabs while the pen rests (0 = off)."
         onChange={(v) => patch((x) => void (x.stroke.airbrushRate = v))}
       />
-      <h4>Randomness</h4>
+      <h3>Randomness</h3>
       <Toggle
         label="Same pattern every stroke (fixed seed)"
         checked={b.fixedSeed}
@@ -951,7 +951,7 @@ function ColourSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
           </span>
         </label>
       ) : null}
-      <h4>Colour jitter</h4>
+      <h3>Colour jitter</h3>
       <Slider
         label="Hue"
         value={b.colorJitter.hue}
@@ -1259,7 +1259,7 @@ export function BrushLab() {
           {section === 'mixing' ? <MixingSection b={draft} patch={patch} /> : null}
         </div>
         <div className="lab-preview">
-          <h4>Preview</h4>
+          <h3>Preview</h3>
           <TestArea brush={draft} color={color} />
         </div>
       </div>

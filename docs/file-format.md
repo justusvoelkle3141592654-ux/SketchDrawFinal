@@ -13,6 +13,7 @@ selection/<tx>_<ty>.a8             raw selection tiles (optional)
 preview.png              composite preview, longest side ≤ 1024 px (optional)
 thumbnail.png            composite thumbnail, longest side ≤ 256 px (optional)
 resources/brushes.json   brush presets used in the document (optional)
+resources/references/<id>.png|jpg|webp   reference images, stored unchanged (optional)
 resources/<name>         additional resources (e.g. time-lapse frames) (optional)
 ```
 
@@ -48,7 +49,9 @@ resources/<name>         additional resources (e.g. time-lapse frames) (optional
 | `layers` | Layer[] | **bottom → top** |
 | `selection` | `{ tiles: [tx, ty][] }` \| null | |
 | `view` | `{ zoom, rotation, panX, panY, flipX, flipY }` \| null | last view |
-| `features` | object | assists (symmetry, ruler, ellipse, perspective, grid), animation, time-lapse settings |
+| `features` | object | assists (symmetry, ruler, ellipse, perspective, grid), reference images, animation, time-lapse settings |
+
+`features.references` lists the reference images shown in the Reference panel: `[{ "id": "ref…", "name": "photo.jpg", "file": "references/ref….jpg", "width": 1200, "height": 800 }]`. Entries whose resource file is missing are ignored. Reference images are never composited into the artwork or exports.
 
 Raster layer:
 

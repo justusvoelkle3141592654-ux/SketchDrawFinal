@@ -18,6 +18,7 @@ import { TextOverlay } from '../ui/TextOverlay';
 import { usePrompt } from './prompt';
 import { CommandPalette, openPalette, usePalette } from '../ui/CommandPalette';
 import { DialogHost } from '../ui/dialogs/DialogHost';
+import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { Orbit } from '../ui/Orbit';
 import {
   NavPuck,
@@ -99,6 +100,8 @@ function useGlobalKeys() {
     };
     const down = (e: KeyboardEvent) => {
       syncHeld(e);
+      // a focused control already handled this key (list navigation, rename, …)
+      if (e.defaultPrevented) return;
       const ui = useUi.getState();
       if (ui.dialog || ui.confirm || usePrompt.getState().req || usePalette.getState().open) return;
       if (isTextInput(e.target)) return;
@@ -137,8 +140,9 @@ function useGlobalKeys() {
       }
       const k = eventToShortcut(e);
       if (!k) return;
-      // Tab keeps its keyboard-navigation role while a control has focus
-      if (k === 'Tab' && onControl) return;
+      // Tab moves keyboard focus through the interface; it toggles Focus Canvas only while the
+      // canvas itself has focus (after drawing on it) or to leave Focus Canvas again
+      if (k === 'Tab' && !ui.focusMode && !target?.classList.contains('canvas')) return;
       if (onControl && (e.key === 'Enter' || e.key === ' ' || e.key.startsWith('Arrow'))) return;
       const id = map.get(k);
       if (id) {
@@ -310,6 +314,7 @@ export function App() {
       <TitleBar />
       {!focusMode ? <CommandBar /> : null}
       <main className="workspace">
+        <h1 className="sr-only">Canvas Forge</h1>
         {!focusMode ? <ToolRail /> : null}
         <div className="canvas-area">
           <CanvasView />
@@ -326,7 +331,9 @@ export function App() {
       </main>
       {!focusMode ? <StatusBar /> : null}
       {!focusMode ? <FloatingPanels /> : null}
-      <DialogHost />
+      <ErrorBoundary name="Dialog" kind="dialog">
+        <DialogHost />
+      </ErrorBoundary>
       <ConfirmModal />
       <PromptModal />
       <CommandPalette />

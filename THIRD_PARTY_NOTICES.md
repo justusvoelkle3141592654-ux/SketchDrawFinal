@@ -18,7 +18,7 @@ The renderer bundle (Vite) and the main-process bundle (esbuild) contain the Jav
 
 ## Development only (not shipped)
 
-TypeScript (Apache-2.0), Vite (MIT), @vitejs/plugin-react (MIT), Vitest (MIT), ESLint (MIT), typescript-eslint (MIT/BSD-2-Clause), eslint-plugin-react-hooks (MIT), globals (MIT), Prettier (MIT), esbuild (MIT), Playwright (Apache-2.0), electron-builder (MIT), @types/* (MIT).
+TypeScript (Apache-2.0), Vite (MIT), @vitejs/plugin-react (MIT), Vitest (MIT), ESLint (MIT), typescript-eslint (MIT/BSD-2-Clause), eslint-plugin-react-hooks (MIT), globals (MIT), Prettier (MIT), esbuild (MIT), Playwright (Apache-2.0), electron-builder (MIT), axe-core (MPL-2.0, used only by the accessibility test), @types/* (MIT).
 
 ## Assets
 

@@ -198,22 +198,43 @@ export function denseToMask(doc: RasterDocument, dense: Uint8ClampedArray): Mask
   return m;
 }
 
-/** Approximate Gaussian feather: three box-blur passes in each direction. */
+/** Mask bounds grown by `margin` and clamped to the document (where filters do their work). */
+function workRegion(doc: RasterDocument, m: MaskGrid, margin: number): Rect | null {
+  const b = maskBounds(m);
+  if (!b) return null;
+  const x0 = Math.max(0, b.x - margin);
+  const y0 = Math.max(0, b.y - margin);
+  const x1 = Math.min(doc.width, b.x + b.w + margin);
+  const y1 = Math.min(doc.height, b.y + b.h + margin);
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+function regionToMask(doc: RasterDocument, region: Rect, data: Uint8ClampedArray): MaskGrid | null {
+  const m = new MaskGrid(doc.tileSize, 0);
+  m.writeRect(region, data);
+  m.prune();
+  return isEmptyMask(m) ? null : m;
+}
+
+/**
+ * Approximate Gaussian feather: three box-blur passes in each direction. Only the selection's
+ * bounds plus the blur reach are processed; edges replicate, so the canvas border stays selected.
+ */
 export function featherMask(doc: RasterDocument, m: MaskGrid, radius: number): MaskGrid | null {
   if (radius <= 0) return m;
-  const w = doc.width;
-  const h = doc.height;
-  const a = new Float32Array(maskToDense(doc, m));
-  const b = new Float32Array(w * h);
   const r = Math.max(1, Math.round(radius / 1.7));
+  const region = workRegion(doc, m, 3 * r + 2);
+  if (!region) return null;
+  const { w, h } = region;
+  const a = new Float32Array(m.readRect(region));
+  const b = new Float32Array(w * h);
   for (let pass = 0; pass < 3; pass++) {
     boxBlurH(a, b, w, h, r);
     boxBlurV(b, a, w, h, r);
   }
   const out = new Uint8ClampedArray(w * h);
   for (let i = 0; i < out.length; i++) out[i] = a[i];
-  const res = denseToMask(doc, out);
-  return isEmptyMask(res) ? null : res;
+  return regionToMask(doc, region, out);
 }
 
 function boxBlurH(src: Float32Array, dst: Float32Array, w: number, h: number, r: number) {
@@ -231,51 +252,92 @@ function boxBlurH(src: Float32Array, dst: Float32Array, w: number, h: number, r:
 
 function boxBlurV(src: Float32Array, dst: Float32Array, w: number, h: number, r: number) {
   const k = 1 / (2 * r + 1);
-  for (let x = 0; x < w; x++) {
-    let acc = 0;
-    for (let y = -r - 1; y < r; y++) acc += src[Math.min(h - 1, Math.max(0, y)) * w + x];
-    for (let y = 0; y < h; y++) {
-      acc += src[Math.min(h - 1, y + r) * w + x] - src[Math.max(0, y - r - 1) * w + x];
-      dst[y * w + x] = acc * k;
+  const acc = new Float64Array(w);
+  // rows are walked in order (cache friendly) while one accumulator per column runs down
+  for (let y = -r - 1; y < r; y++) {
+    const row = Math.min(h - 1, Math.max(0, y)) * w;
+    for (let x = 0; x < w; x++) acc[x] += src[row + x];
+  }
+  for (let y = 0; y < h; y++) {
+    const add = Math.min(h - 1, y + r) * w;
+    const sub = Math.max(0, y - r - 1) * w;
+    const out = y * w;
+    for (let x = 0; x < w; x++) {
+      acc[x] += src[add + x] - src[sub + x];
+      dst[out + x] = acc[x] * k;
     }
   }
 }
 
-/** Grows (positive) or shrinks (negative) a selection by `px` pixels (threshold of a blurred mask). */
+/**
+ * Sliding-window maximum/minimum over 2r+1 samples (van Herk / Gil-Werman: constant cost per pixel
+ * for any radius). `e` holds the line padded by r replicated samples on each side.
+ */
+function slidingExtreme(
+  e: Uint8Array,
+  len: number,
+  k: number,
+  isMax: boolean,
+  g: Uint8Array,
+  hh: Uint8Array,
+  res: Uint8Array,
+  n: number,
+) {
+  for (let start = 0; start < len; start += k) {
+    const end = Math.min(len, start + k);
+    let acc = e[start];
+    g[start] = acc;
+    for (let j = start + 1; j < end; j++) {
+      const v = e[j];
+      acc = isMax ? (v > acc ? v : acc) : v < acc ? v : acc;
+      g[j] = acc;
+    }
+    acc = e[end - 1];
+    hh[end - 1] = acc;
+    for (let j = end - 2; j >= start; j--) {
+      const v = e[j];
+      acc = isMax ? (v > acc ? v : acc) : v < acc ? v : acc;
+      hh[j] = acc;
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const a = hh[i];
+    const b = g[i + k - 1];
+    res[i] = isMax ? (a > b ? a : b) : a < b ? a : b;
+  }
+}
+
+/** Grows (positive) or shrinks (negative) a selection by `px` pixels with a square min/max filter. */
 export function growMask(doc: RasterDocument, m: MaskGrid, px: number): MaskGrid | null {
   if (!px) return m;
-  const w = doc.width;
-  const h = doc.height;
-  const src = maskToDense(doc, m);
-  const out = new Uint8ClampedArray(w * h);
   const r = Math.abs(Math.round(px));
   const grow = px > 0;
-  // separable min/max filter (square structuring element)
+  const region = workRegion(doc, m, r + 1);
+  if (!region) return null;
+  const { w, h } = region;
+  const src = m.readRect(region);
   const tmp = new Uint8ClampedArray(w * h);
+  const out = new Uint8ClampedArray(w * h);
+  const k = 2 * r + 1;
+  const maxLen = Math.max(w, h) + 2 * r;
+  const e = new Uint8Array(maxLen);
+  const g = new Uint8Array(maxLen);
+  const hh = new Uint8Array(maxLen);
+  const res = new Uint8Array(Math.max(w, h));
+  // rows
   for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let v = grow ? 0 : 255;
-      for (let d = -r; d <= r; d++) {
-        const xx = Math.min(w - 1, Math.max(0, x + d));
-        const s = src[y * w + xx];
-        v = grow ? Math.max(v, s) : Math.min(v, s);
-      }
-      tmp[y * w + x] = v;
-    }
+    const row = y * w;
+    for (let j = 0; j < w + 2 * r; j++) e[j] = src[row + Math.min(w - 1, Math.max(0, j - r))];
+    slidingExtreme(e, w + 2 * r, k, grow, g, hh, res, w);
+    tmp.set(res.subarray(0, w), row);
   }
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let v = grow ? 0 : 255;
-      for (let d = -r; d <= r; d++) {
-        const yy = Math.min(h - 1, Math.max(0, y + d));
-        const s = tmp[yy * w + x];
-        v = grow ? Math.max(v, s) : Math.min(v, s);
-      }
-      out[y * w + x] = v;
-    }
+  // columns
+  for (let x = 0; x < w; x++) {
+    for (let j = 0; j < h + 2 * r; j++) e[j] = tmp[Math.min(h - 1, Math.max(0, j - r)) * w + x];
+    slidingExtreme(e, h + 2 * r, k, grow, g, hh, res, h);
+    for (let y = 0; y < h; y++) out[y * w + x] = res[y];
   }
-  const res = denseToMask(doc, out);
-  return isEmptyMask(res) ? null : res;
+  return regionToMask(doc, region, out);
 }
 
 /**

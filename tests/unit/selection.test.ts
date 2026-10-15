@@ -87,6 +87,45 @@ describe('selection combine, invert, feather, grow', () => {
     expect(maskBounds(growMask(d, m, 5)!)).toEqual({ x: 95, y: 45, w: 60, h: 60 });
     expect(maskBounds(growMask(d, m, -5)!)).toEqual({ x: 105, y: 55, w: 40, h: 40 });
   });
+  it('grow/shrink match a direct min/max filter, including at the canvas border', () => {
+    const d = RasterDocument.createDefault({ width: 90, height: 70 });
+    // irregular mask touching the left border, with soft values
+    const dense = new Uint8ClampedArray(90 * 70);
+    let seed = 7;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32;
+    for (let y = 10; y < 60; y++)
+      for (let x = 0; x < 50; x++) if (rnd() < 0.6) dense[y * 90 + x] = Math.floor(rnd() * 256);
+    const m = polygonMask(d, rectPolygon(0, 0, 1, 1));
+    m.writeRect({ x: 0, y: 0, w: 90, h: 70 }, dense);
+    m.prune();
+    const naive = (r: number, isMax: boolean) => {
+      const out = new Uint8ClampedArray(90 * 70);
+      for (let y = 0; y < 70; y++)
+        for (let x = 0; x < 90; x++) {
+          let v = isMax ? 0 : 255;
+          for (let dy = -r; dy <= r; dy++)
+            for (let dx = -r; dx <= r; dx++) {
+              const s = dense[Math.min(69, Math.max(0, y + dy)) * 90 + Math.min(89, Math.max(0, x + dx))];
+              v = isMax ? Math.max(v, s) : Math.min(v, s);
+            }
+          out[y * 90 + x] = v;
+        }
+      return out;
+    };
+    for (const r of [1, 3, 6]) {
+      expect(growMask(d, m, r)!.readRect({ x: 0, y: 0, w: 90, h: 70 })).toEqual(naive(r, true));
+      const shrunk = growMask(d, m, -r);
+      expect(shrunk ? shrunk.readRect({ x: 0, y: 0, w: 90, h: 70 }) : new Uint8ClampedArray(90 * 70)).toEqual(
+        naive(r, false),
+      );
+    }
+  });
+  it('select all stays complete when contracted or feathered (canvas edges replicate)', () => {
+    const d = doc();
+    const all = selectAllMask(d);
+    expect(maskBounds(growMask(d, all, -4)!)).toEqual({ x: 0, y: 0, w: 300, h: 200 });
+    expect(featherMask(d, all, 10)!.getValue(0, 0)).toBe(255);
+  });
   it('outline segments trace the boundary', () => {
     const d = doc();
     const segs = maskOutline(polygonMask(d, rectPolygon(10, 10, 20, 30)), d.width, d.height);

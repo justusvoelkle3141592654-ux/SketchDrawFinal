@@ -1,5 +1,5 @@
 // Canvas Forge — Electron main process.
-import { app, BrowserWindow, ipcMain, screen, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, screen, session, shell } from 'electron';
 import { extname, join, resolve } from 'node:path';
 import { IPC, DOCUMENT_EXTENSION } from '../shared/ipc';
 import { registerIpc, readDocumentFile } from './ipc';
@@ -109,6 +109,60 @@ async function createWindow() {
   wc.on('will-attach-webview', (e) => e.preventDefault());
   wc.once('did-finish-load', () => {
     for (const p of pendingOpenPaths.splice(0)) void sendOpenPath(p);
+  });
+
+  // Error surfaces for a crashed or hanging renderer. Recovery snapshots written before the
+  // problem are offered again after a reload.
+  wc.on('render-process-gone', (_e, details) => {
+    if (details.reason === 'clean-exit' || !mainWindow) return;
+    void dialog
+      .showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'Canvas Forge',
+        message: 'The drawing view stopped unexpectedly.',
+        detail: `Reason: ${details.reason}. After reloading, Canvas Forge offers the recovery snapshots it wrote before the problem.`,
+        buttons: ['Reload', 'Quit'],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+      })
+      .then((r) => {
+        if (r.response === 0) wc.reload();
+        else {
+          allowClose = true;
+          app.quit();
+        }
+      });
+  });
+  let hangPrompt: AbortController | null = null;
+  wc.on('unresponsive', () => {
+    if (!mainWindow || hangPrompt) return;
+    hangPrompt = new AbortController();
+    void dialog
+      .showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'Canvas Forge',
+        message: 'Canvas Forge is not responding.',
+        detail:
+          'A large operation may still be running. Wait, or reload the drawing view — changes after the last recovery snapshot would be lost.',
+        buttons: ['Wait', 'Reload'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+        signal: hangPrompt.signal,
+      })
+      .then((r) => {
+        hangPrompt = null;
+        if (r.response === 1) {
+          wc.forcefullyCrashRenderer();
+          wc.reload();
+        }
+      })
+      .catch(() => (hangPrompt = null));
+  });
+  wc.on('responsive', () => {
+    hangPrompt?.abort();
+    hangPrompt = null;
   });
 
   if (devServerUrl) {

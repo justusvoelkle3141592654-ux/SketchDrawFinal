@@ -527,6 +527,7 @@ export function applyAdjustment(
   const sel = doc.selection;
   const ts = doc.tileSize;
   const lut = new Uint8ClampedArray(256);
+  const hslCache = adj.kind === 'hue-saturation' ? new Map<number, number>() : null;
   if (adj.kind === 'brightness-contrast') {
     // brightness −1..1 shifts, contrast −1..1 scales around mid grey
     const c = adj.contrast >= 0 ? 1 + adj.contrast * 3 : 1 + adj.contrast;
@@ -563,14 +564,21 @@ export function applyAdjustment(
           b = 255 - b;
           break;
         case 'hue-saturation': {
-          const hsl = rgbToHsl({ r: r / 255, g: g / 255, b: b / 255 });
-          hsl.h = (((hsl.h + adj.hue) % 1) + 1) % 1;
-          hsl.s = Math.min(1, Math.max(0, hsl.s * (1 + adj.saturation)));
-          hsl.l = adj.lightness >= 0 ? hsl.l + (1 - hsl.l) * adj.lightness : hsl.l * (1 + adj.lightness);
-          const o = hslToRgb(hsl);
-          r = o.r * 255;
-          g = o.g * 255;
-          b = o.b * 255;
+          // artwork repeats colours a lot: cache the conversion per 24-bit colour
+          const key = (r << 16) | (g << 8) | b;
+          let packed = hslCache!.get(key);
+          if (packed === undefined) {
+            const hsl = rgbToHsl({ r: r / 255, g: g / 255, b: b / 255 });
+            hsl.h = (((hsl.h + adj.hue) % 1) + 1) % 1;
+            hsl.s = Math.min(1, Math.max(0, hsl.s * (1 + adj.saturation)));
+            hsl.l = adj.lightness >= 0 ? hsl.l + (1 - hsl.l) * adj.lightness : hsl.l * (1 + adj.lightness);
+            const o = hslToRgb(hsl);
+            packed = (Math.round(o.r * 255) << 16) | (Math.round(o.g * 255) << 8) | Math.round(o.b * 255);
+            if (hslCache!.size < 1 << 20) hslCache!.set(key, packed);
+          }
+          r = packed >> 16;
+          g = (packed >> 8) & 255;
+          b = packed & 255;
           break;
         }
       }
