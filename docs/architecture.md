@@ -26,14 +26,19 @@ src/renderer/
     compositor.ts  rect compositing incl. groups, clipping, masks, live stroke preview
     history.ts     undo/redo with memory budget, tile diffs, structural snapshots
     layer-ops.ts   add/delete/move/duplicate/merge/flatten/clear/mask operations
+    selection.ts   selection masks: polygon rasteriser (anti-aliased), combine modes, feather, grow/shrink, flood fill, outline
+    pixel-ops.ts   extract/clear/paste blocks, affine + projective resampling, fill, gradient, adjustments, canvas/image size, rotate/flip
+    animation.ts   flipbook model: frames, held layers, exposures, timeline, onion-skin composite options
     brush/         schema + validation/migration, 37 presets, tips & textures, dab rasteriser, dynamics
     stroke/        pipeline (stabiliser, interpolation, resampling), predictive stroke, stroke engine
     io/            .cforge container, PNG codec, brush packs
   state/           Zustand stores: documents, ui, input, preferences, brushes, colours
   render/          CanvasRenderer (composite surface + view transform + overlays)
   input/           pointer normalisation (pressure curve, tilt, buttons, fallbacks)
-  tools/           tool controllers (brush/eraser, eyedropper, navigation, guides, symmetry …)
-  app/             commands, shortcuts, file actions, document actions, App root
+  tools/           tool controllers (brush/eraser, eyedropper, navigation, guides, symmetry, selection,
+                   transform, crop, fill, gradient, shapes, text)
+  app/             commands, shortcuts, file actions, document actions, clipboard, selection and adjustment
+                   actions, references, animation (playback/export), time-lapse, App root
   ui/              components, panels, dialogs, icons
 ```
 
@@ -57,6 +62,18 @@ Unit tests covering this policy: `tests/unit/blend.test.ts`, `tests/unit/engine.
 `CanvasRenderer` keeps one document-sized composite surface per open document. Document changes call `doc.invalidate(rect)`; the renderer splits the rect at tile boundaries and keeps one dirty sub-rectangle per tile. Each animation frame it recomposites dirty sub-rects (time budget 10 ms per frame, the rest continues next frame) and uploads them with `putImageData(…, dirtyX, dirtyY, dirtyW, dirtyH)`. The visible canvas then draws the surface with a single affine transform (pan, zoom 6.25 %–6400 %, rotation, mirror). Because the view draws one surface, tile seams cannot appear in the view. Overlays (brush outline, eyedropper loupe, symmetry axes, guides, grid, selection outline, transform handles) are drawn on top in screen space. The pixel grid appears from 800 %.
 
 The compositor has a fast path for plain raster layers: 8-bit tiles are blended directly into the float accumulator with inlined source-over (no intermediate buffer). Layers being painted use the general path, which adds the live stroke buffer.
+
+### Animation frames and onion skin
+
+With animation on, every top-level layer node is a frame. A display provider registered by `app/animation.ts` tells the renderer what to composite: the held background, the onion-skin frames (each with a `NodeStyle` — extra opacity and a tint mixed in premultiplied space), the current frame and the held foreground, in that order (`CompositeOptions.roots` / `nodeStyle`). The provider also returns a key; when the key changes (another frame, other onion settings), the renderer recomposites the whole surface. Picking, copy merged, fill/wand sampling, image export and file previews use the same frame options without onion skins. Playback does not composite live: frames are rendered once into canvases (cached by a content signature), and the renderer draws the prepared frame instead of the surface.
+
+### Time-lapse
+
+When recording, edits (history changes) schedule a snapshot after they settle (≥ 1.2 s apart). The snapshot is a GPU downscale of the already composited surface (`CanvasRenderer.snapshot`, 720 px long side) encoded as WebP, so it adds no compositing work. Frames are kept as document resources and saved in the `.cforge` file.
+
+## Errors
+
+Panels, dialogs and the workspace are wrapped in React error boundaries (a failing panel shows a message with *Try again*; a failing dialog closes with a notice; the workspace offers continue/reload). Uncaught errors and rejected promises become error notices. The main process offers to reload a crashed renderer and to wait/reload a hung one.
 
 ## Stroke pipeline
 

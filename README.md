@@ -6,6 +6,10 @@ Canvas Forge is an offline raster drawing and painting application for Windows 1
 
 > Status and verified results: see [PROGRESS.md](PROGRESS.md). User documentation: [USER_GUIDE.md](USER_GUIDE.md).
 
+## Install (Windows)
+
+The ready-built installer is in [`installer/`](installer/): run `Canvas Forge Setup 0.1.0.exe`. It installs Canvas Forge like any other Windows app (Start menu and desktop shortcut, `.cforge` file association, uninstall via Settings → Apps). Details and the SmartScreen note: [installer/README.md](installer/README.md).
+
 ## Requirements
 
 * Node.js 22 and npm 10

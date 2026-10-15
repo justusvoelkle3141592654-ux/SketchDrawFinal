@@ -14,6 +14,11 @@ extraResources:
   - from: THIRD_PARTY_NOTICES.md
     to: THIRD_PARTY_NOTICES.md
 asar: true
+# Smaller download: strongest compression and only the English and German UI locales of Chromium.
+compression: maximum
+electronLanguages:
+  - en-US
+  - de
 fileAssociations:
   - ext: cforge
     name: Canvas Forge Document
