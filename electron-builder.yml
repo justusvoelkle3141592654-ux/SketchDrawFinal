@@ -1,0 +1,46 @@
+appId: app.canvasforge.desktop
+productName: Canvas Forge
+copyright: Copyright © 2026 Canvas Forge contributors
+directories:
+  output: release
+  buildResources: build
+# Everything the app needs is bundled into dist/; node_modules are not shipped.
+files:
+  - dist/**
+  - build/icon.png
+  - package.json
+  - '!**/*.map'
+extraResources:
+  - from: THIRD_PARTY_NOTICES.md
+    to: THIRD_PARTY_NOTICES.md
+asar: true
+fileAssociations:
+  - ext: cforge
+    name: Canvas Forge Document
+    description: Canvas Forge document
+    role: Editor
+    icon: build/icon.ico
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: build/icon.ico
+  # Building on Linux without Wine: skip rcedit/signing of the executable.
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Canvas Forge
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  artifactName: Canvas Forge Setup ${version}.${ext}
+portable:
+  artifactName: Canvas Forge ${version} Portable.${ext}
+linux:
+  target: dir
+  category: Graphics

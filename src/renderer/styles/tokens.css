@@ -1,0 +1,92 @@
+/* Canvas Forge design tokens. Graphite surfaces, teal → violet accent reserved for meaning. */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ws: #101215; /* workspace behind the canvas */
+  --surface-0: #15171b;
+  --surface-1: #1a1d22;
+  --surface-2: #21252b;
+  --surface-3: #292e35;
+  --surface-4: #323841;
+  --line: #2a2f36;
+  --line-strong: #3a414b;
+  --text-0: #eceef2;
+  --text-1: #b9bfc8;
+  --text-2: #858d99;
+  --text-3: #5d6470;
+  --accent-teal: #2ec4b2;
+  --accent-violet: #8b6ef0;
+  --accent: #3dbdb5;
+  --accent-strong: #5ad6c8;
+  --accent-soft: rgba(61, 189, 181, 0.16);
+  --accent-grad: linear-gradient(135deg, #2ec4b2 0%, #5f97e6 55%, #8b6ef0 100%);
+  --focus: #6be0d2;
+  --danger: #e5646e;
+  --danger-soft: rgba(229, 100, 110, 0.15);
+  --warning: #e3a64f;
+  --recording: #ef5d6a;
+  --success: #5cc48a;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  --checker-a: #3a3f47;
+  --checker-b: #2d3138;
+  --scrim: rgba(6, 8, 10, 0.55);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --ws: #c9cdd3;
+  --surface-0: #e7e9ec;
+  --surface-1: #f2f3f5;
+  --surface-2: #e6e8eb;
+  --surface-3: #dadde2;
+  --surface-4: #cdd1d7;
+  --line: #d3d6db;
+  --line-strong: #bfc4cb;
+  --text-0: #1b1e23;
+  --text-1: #3d434c;
+  --text-2: #646b76;
+  --text-3: #8f96a1;
+  --accent: #1f9f96;
+  --accent-strong: #138a82;
+  --accent-soft: rgba(31, 159, 150, 0.14);
+  --focus: #1f9f96;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.18);
+  --checker-a: #ffffff;
+  --checker-b: #e3e5e8;
+  --scrim: rgba(30, 34, 40, 0.35);
+}
+
+:root {
+  --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Cascadia Mono', 'Consolas', ui-monospace, monospace;
+  --radius-s: 4px;
+  --radius: 6px;
+  --radius-l: 8px;
+  /* compact density (default) */
+  --fs: 12.5px;
+  --fs-s: 11.5px;
+  --fs-l: 14px;
+  --ctl: 28px; /* control height */
+  --icon-btn: 30px;
+  --rail-w: 52px;
+  --titlebar-h: 38px;
+  --commandbar-h: 44px;
+  --statusbar-h: 26px;
+  --gap: 8px;
+  --pad: 10px;
+}
+
+:root[data-density='roomy'] {
+  --fs: 13.5px;
+  --fs-s: 12.5px;
+  --fs-l: 15px;
+  --ctl: 36px;
+  --icon-btn: 40px;
+  --rail-w: 62px;
+  --commandbar-h: 52px;
+  --statusbar-h: 30px;
+  --gap: 10px;
+  --pad: 12px;
+}

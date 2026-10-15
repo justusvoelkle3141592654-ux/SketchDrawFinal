@@ -1,0 +1,52 @@
+{
+  "name": "canvas-forge",
+  "productName": "Canvas Forge",
+  "version": "0.1.0",
+  "description": "A tablet-native digital sketchbook with deep brush control and a calm, modern workspace.",
+  "author": "Canvas Forge contributors",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "dist/main/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build && node scripts/build-electron.mjs",
+    "start": "npm run build && electron .",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npm run build && node scripts/run-e2e.mjs",
+    "package:win": "npm run build && electron-builder --win --x64 --publish never",
+    "package:linux-dir": "npm run build && electron-builder --linux dir --x64 --publish never",
+    "perf": "vitest run --config vitest.perf.config.ts"
+  },
+  "dependencies": {
+    "fflate": "0.8.3",
+    "gifenc": "1.0.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.56.1",
+    "@types/node": "24.19.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "electron": "43.7.7",
+    "electron-builder": "26.15.3",
+    "esbuild": "0.28.2",
+    "eslint": "10.11.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.12.0",
+    "prettier": "3.9.9",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.0",
+    "vite": "8.3.1",
+    "vitest": "4.1.11"
+  }
+}
