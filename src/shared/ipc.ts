@@ -109,9 +109,11 @@ export interface ForgeApi {
   importBrushPack(): Promise<OpenedFile | { error: string } | null>;
   exportBrushPack(suggestedName: string, bytes: Uint8Array): Promise<SaveResult>;
   importPalette(): Promise<OpenedFile | { error: string } | null>;
-  /** Returns the absolute path of a dropped File (Electron webUtils), or '' if unavailable. */
-  getPathForFile(file: File): string;
-  grantDroppedPath(path: string): Promise<boolean>;
+  /**
+   * Lets the app save back to a dropped .cforge file. Returns its absolute path, or null. The
+   * preload reads the path from the File itself, so the page cannot grant an arbitrary path.
+   */
+  grantDroppedFile(file: File): Promise<string | null>;
   listRecent(): Promise<RecentEntry[]>;
   clearRecent(): Promise<void>;
   loadAppData(kind: AppDataKind): Promise<unknown>;

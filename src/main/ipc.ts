@@ -1,7 +1,7 @@
 // IPC handlers. Every argument coming from the renderer is validated here.
 import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage } from 'electron';
 import { readFile, mkdir, stat } from 'node:fs/promises';
-import { basename, extname, isAbsolute, join, normalize } from 'node:path';
+import { basename, extname, isAbsolute, join } from 'node:path';
 import {
   APP_DATA_KINDS,
   BRUSHPACK_EXTENSION,
@@ -18,14 +18,18 @@ import {
 import { validateCforgeBytes } from '../shared/cforge-validate';
 import { atomicWrite, describeFsError, fileExists } from './files';
 import * as data from './appdata';
+import { PathGrants } from './ipc-guard';
 
 const MAX_READ_BYTES = 1536 * 1024 * 1024;
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp'];
 
 /** Paths the renderer may write to: chosen in a native dialog, listed in recents, or dropped by the user. */
-const grantedPaths = new Set<string>();
-const grant = (p: string) => grantedPaths.add(normalize(p));
-const isGranted = (p: string) => grantedPaths.has(normalize(p));
+const grants = new PathGrants();
+const grant = (p: string) => grants.grant(p);
+const isGranted = (p: string) => grants.has(p);
+
+/** Decides whether an IPC message comes from the app's own page in the main window. */
+export type SenderCheck = (e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) => boolean;
 
 function isBytes(v: unknown): v is Uint8Array {
   return v instanceof Uint8Array;
@@ -90,8 +94,20 @@ function ensureExt(path: string, ext: string, alternatives: string[] = []): stri
   return `${path}.${ext}`;
 }
 
-export function registerIpc(): void {
-  ipcMain.handle(IPC.appInfo, () => ({
+export function registerIpc(isTrusted: SenderCheck): void {
+  // Every channel goes through these wrappers, so no other window, frame or page reaches a
+  // handler: an untrusted invoke() is rejected, an untrusted send() is dropped.
+  const handle = (channel: string, listener: Parameters<typeof ipcMain.handle>[1]) =>
+    ipcMain.handle(channel, (e, ...args) => {
+      if (!isTrusted(e)) throw new Error('IPC call rejected: untrusted sender.');
+      return listener(e, ...args);
+    });
+  const on = (channel: string, listener: Parameters<typeof ipcMain.on>[1]) =>
+    ipcMain.on(channel, (e, ...args) => {
+      if (isTrusted(e)) listener(e, ...args);
+    });
+
+  handle(IPC.appInfo, () => ({
     version: app.getVersion(),
     platform: process.platform,
     electron: process.versions.electron,
@@ -100,7 +116,7 @@ export function registerIpc(): void {
     userDataPath: app.getPath('userData'),
   }));
 
-  ipcMain.handle(IPC.openDocument, async (e) => {
+  handle(IPC.openDocument, async (e) => {
     const path = await showOpen(windowOf(e), 'Open', [
       { name: 'Canvas Forge document or image', extensions: [DOCUMENT_EXTENSION, ...IMAGE_EXTS] },
       { name: 'Canvas Forge document', extensions: [DOCUMENT_EXTENSION] },
@@ -110,7 +126,7 @@ export function registerIpc(): void {
     return readDocumentFile(path);
   });
 
-  ipcMain.handle(IPC.openRecent, async (_e, path: unknown) => {
+  handle(IPC.openRecent, async (_e, path: unknown) => {
     if (!isShortString(path, 4096) || !isAbsolute(path)) return { error: 'Invalid path.' };
     if (!(await data.isRecent(path)) && !isGranted(path))
       return { error: 'This file is not in the recent list.' };
@@ -119,7 +135,7 @@ export function registerIpc(): void {
     return readDocumentFile(path);
   });
 
-  ipcMain.handle(IPC.importImage, async (e) => {
+  handle(IPC.importImage, async (e) => {
     const path = await showOpen(windowOf(e), 'Import image as layer', [
       { name: 'Images', extensions: IMAGE_EXTS },
     ]);
@@ -127,7 +143,7 @@ export function registerIpc(): void {
     return readDocumentFile(path);
   });
 
-  ipcMain.handle(IPC.saveDocument, async (e, req: SaveDocumentRequest): Promise<SaveResult> => {
+  handle(IPC.saveDocument, async (e, req: SaveDocumentRequest): Promise<SaveResult> => {
     if (!req || !isBytes(req.bytes) || !isShortString(req.suggestedName) || typeof req.saveAs !== 'boolean') {
       return { ok: false, canceled: false, error: 'Invalid save request.' };
     }
@@ -157,7 +173,7 @@ export function registerIpc(): void {
     }
   });
 
-  ipcMain.handle(IPC.exportImage, async (e, req: ExportImageRequest): Promise<SaveResult> => {
+  handle(IPC.exportImage, async (e, req: ExportImageRequest): Promise<SaveResult> => {
     const formats: Record<string, Electron.FileFilter> = {
       png: { name: 'PNG image', extensions: ['png'] },
       jpeg: { name: 'JPEG image', extensions: ['jpg', 'jpeg'] },
@@ -181,7 +197,7 @@ export function registerIpc(): void {
     }
   });
 
-  ipcMain.handle(IPC.exportSequence, async (e, req: ExportSequenceRequest): Promise<SaveResult> => {
+  handle(IPC.exportSequence, async (e, req: ExportSequenceRequest): Promise<SaveResult> => {
     if (
       !req ||
       !Array.isArray(req.files) ||
@@ -210,7 +226,7 @@ export function registerIpc(): void {
     }
   });
 
-  ipcMain.handle(IPC.importBrushPack, async (e) => {
+  handle(IPC.importBrushPack, async (e) => {
     const path = await showOpen(windowOf(e), 'Import brush pack', [
       { name: 'Canvas Forge brush pack', extensions: [BRUSHPACK_EXTENSION] },
     ]);
@@ -218,7 +234,7 @@ export function registerIpc(): void {
     return readDocumentFile(path);
   });
 
-  ipcMain.handle(IPC.exportBrushPack, async (e, req: { suggestedName: unknown; bytes: unknown }) => {
+  handle(IPC.exportBrushPack, async (e, req: { suggestedName: unknown; bytes: unknown }) => {
     if (!req || !isShortString(req.suggestedName) || !isBytes(req.bytes)) {
       return { ok: false, canceled: false, error: 'Invalid export request.' };
     }
@@ -238,7 +254,7 @@ export function registerIpc(): void {
     }
   });
 
-  ipcMain.handle(IPC.importPalette, async (e) => {
+  handle(IPC.importPalette, async (e) => {
     const path = await showOpen(windowOf(e), 'Import palette', [
       { name: 'Palettes (GIMP .gpl, Canvas Forge .json)', extensions: ['gpl', 'json'] },
     ]);
@@ -246,7 +262,8 @@ export function registerIpc(): void {
     return readDocumentFile(path);
   });
 
-  ipcMain.handle(IPC.grantDroppedPath, async (_e, path: unknown) => {
+  // Reached only through the preload's grantDroppedFile, which takes the path from a dropped File.
+  handle(IPC.grantDroppedPath, async (_e, path: unknown) => {
     if (!isShortString(path, 4096) || !isAbsolute(path)) return false;
     if (extname(path).toLowerCase() !== `.${DOCUMENT_EXTENSION}`) return false;
     if (!(await fileExists(path))) return false;
@@ -255,14 +272,14 @@ export function registerIpc(): void {
     return true;
   });
 
-  ipcMain.handle(IPC.listRecent, () => data.listRecent());
-  ipcMain.handle(IPC.clearRecent, () => data.clearRecent());
+  handle(IPC.listRecent, () => data.listRecent());
+  handle(IPC.clearRecent, () => data.clearRecent());
 
-  ipcMain.handle(IPC.loadAppData, (_e, kind: unknown) => {
+  handle(IPC.loadAppData, (_e, kind: unknown) => {
     if (!APP_DATA_KINDS.includes(kind as AppDataKind)) return null;
     return data.loadAppData(kind as AppDataKind);
   });
-  ipcMain.handle(IPC.saveAppData, async (_e, kind: unknown, value: unknown) => {
+  handle(IPC.saveAppData, async (_e, kind: unknown, value: unknown) => {
     if (!APP_DATA_KINDS.includes(kind as AppDataKind)) return { ok: false, error: 'Unknown data kind.' };
     try {
       await data.saveAppData(kind as AppDataKind, value);
@@ -272,7 +289,7 @@ export function registerIpc(): void {
     }
   });
 
-  ipcMain.handle(IPC.recoveryWrite, async (_e, meta: RecoveryMeta, bytes: unknown) => {
+  handle(IPC.recoveryWrite, async (_e, meta: RecoveryMeta, bytes: unknown) => {
     if (!meta || !data.isValidRecoveryId(meta.id) || !isShortString(meta.title) || !isBytes(bytes)) {
       return { ok: false, error: 'Invalid recovery request.' };
     }
@@ -281,7 +298,8 @@ export function registerIpc(): void {
         {
           id: meta.id,
           title: meta.title,
-          originalPath: typeof meta.originalPath === 'string' ? meta.originalPath : null,
+          // kept only if already granted; recoveryRead re-grants it, possibly after a restart
+          originalPath: grants.recoveryPath(meta.originalPath),
           savedAt: Number(meta.savedAt) || Date.now(),
           width: Number(meta.width) || 0,
           height: Number(meta.height) || 0,
@@ -293,41 +311,42 @@ export function registerIpc(): void {
       return { ok: false, error: describeFsError(err) };
     }
   });
-  ipcMain.handle(IPC.recoveryList, () => data.listRecovery());
-  ipcMain.handle(IPC.recoveryRead, async (_e, id: unknown) => {
+  handle(IPC.recoveryList, () => data.listRecovery());
+  handle(IPC.recoveryRead, async (_e, id: unknown) => {
     if (!data.isValidRecoveryId(id)) return null;
     const entries = await data.listRecovery();
     const entry = entries.find((r) => r.id === id);
+    // recoveryWrite stored this path only if it was granted then
     if (entry?.originalPath) grant(entry.originalPath);
     return data.readRecovery(id);
   });
-  ipcMain.handle(IPC.recoveryDelete, (_e, id: unknown) => {
+  handle(IPC.recoveryDelete, (_e, id: unknown) => {
     if (!data.isValidRecoveryId(id)) return;
     return data.deleteRecovery(id);
   });
 
-  ipcMain.handle(IPC.clipboardReadImage, () => {
+  handle(IPC.clipboardReadImage, () => {
     const img = clipboard.readImage();
     if (img.isEmpty()) return null;
     return new Uint8Array(img.toPNG());
   });
-  ipcMain.handle(IPC.clipboardWriteImage, (_e, png: unknown) => {
+  handle(IPC.clipboardWriteImage, (_e, png: unknown) => {
     if (!isBytes(png)) return;
     const img = nativeImage.createFromBuffer(Buffer.from(png));
     if (!img.isEmpty()) clipboard.writeImage(img);
   });
 
-  ipcMain.handle(IPC.windowToggleFullScreen, (e) => {
+  handle(IPC.windowToggleFullScreen, (e) => {
     const win = windowOf(e);
     if (!win) return false;
     win.setFullScreen(!win.isFullScreen());
     return win.isFullScreen();
   });
-  ipcMain.on(IPC.windowSetTitle, (e, title: unknown) => {
+  on(IPC.windowSetTitle, (e, title: unknown) => {
     if (!isShortString(title, 300)) return;
     BrowserWindow.fromWebContents(e.sender)?.setTitle(title);
   });
-  ipcMain.on(IPC.windowSetOverlay, (e, colors: { color?: unknown; symbolColor?: unknown }) => {
+  on(IPC.windowSetOverlay, (e, colors: { color?: unknown; symbolColor?: unknown }) => {
     const win = BrowserWindow.fromWebContents(e.sender);
     const hex = /^#[0-9a-fA-F]{6}$/;
     if (!win || process.platform === 'darwin') return;

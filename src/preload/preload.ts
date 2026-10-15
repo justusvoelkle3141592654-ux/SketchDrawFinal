@@ -29,14 +29,17 @@ const api: ForgeApi = {
   exportBrushPack: (suggestedName: string, bytes: Uint8Array) =>
     ipcRenderer.invoke(IPC.exportBrushPack, { suggestedName, bytes }),
   importPalette: () => ipcRenderer.invoke(IPC.importPalette),
-  getPathForFile: (file: File) => {
+  grantDroppedFile: async (file: File) => {
+    // the path comes from the dropped File here, so the page cannot ask for an arbitrary one
+    let path: string;
     try {
-      return webUtils.getPathForFile(file);
+      path = webUtils.getPathForFile(file);
     } catch {
-      return '';
+      return null;
     }
+    if (!path) return null;
+    return (await ipcRenderer.invoke(IPC.grantDroppedPath, path)) === true ? path : null;
   },
-  grantDroppedPath: (path: string) => ipcRenderer.invoke(IPC.grantDroppedPath, path),
   listRecent: () => ipcRenderer.invoke(IPC.listRecent),
   clearRecent: () => ipcRenderer.invoke(IPC.clearRecent),
   loadAppData: (kind: AppDataKind) => ipcRenderer.invoke(IPC.loadAppData, kind),

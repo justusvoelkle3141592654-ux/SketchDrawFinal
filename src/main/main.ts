@@ -1,8 +1,10 @@
 // Canvas Forge — Electron main process.
 import { app, BrowserWindow, dialog, ipcMain, screen, session, shell } from 'electron';
 import { extname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { IPC, DOCUMENT_EXTENSION } from '../shared/ipc';
 import { registerIpc, readDocumentFile } from './ipc';
+import { isAppRendererUrl } from './ipc-guard';
 import { loadWindowState, saveWindowState, type WindowState } from './appdata';
 
 // Optional override, used by tests and portable setups.
@@ -14,9 +16,25 @@ const devServerUrl = process.env.CFORGE_DEV_SERVER_URL;
 // Fits the work area of 1366 × 768 at 125 % scaling (about 1093 × 566 DIP with the taskbar).
 const MIN_WIDTH = 1024;
 const MIN_HEIGHT = 540;
+const rendererIndex = join(__dirname, '../renderer/index.html');
+// The only page that may use IPC: the built index.html, or the Vite dev server in development.
+const rendererEntryUrl = devServerUrl ?? pathToFileURL(rendererIndex).href;
 let mainWindow: BrowserWindow | null = null;
 let allowClose = false;
 const pendingOpenPaths: string[] = [];
+
+/** IPC is accepted only from the main window's top frame while it shows the app's own page. */
+function isTrustedSender(e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean {
+  const frame = e.senderFrame;
+  return (
+    !!mainWindow &&
+    !mainWindow.isDestroyed() &&
+    e.sender.id === mainWindow.webContents.id &&
+    !!frame &&
+    frame.parent === null &&
+    isAppRendererUrl(frame.url, rendererEntryUrl)
+  );
+}
 
 function documentArgs(argv: string[]): string[] {
   return argv.filter((a) => {
@@ -175,7 +193,7 @@ async function createWindow() {
   if (devServerUrl) {
     await mainWindow.loadURL(devServerUrl);
   } else {
-    await mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+    await mainWindow.loadFile(rendererIndex);
   }
 }
 
@@ -194,8 +212,9 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
     session.defaultSession.setPermissionCheckHandler(() => false);
-    registerIpc();
-    ipcMain.on(IPC.windowConfirmClose, () => {
+    registerIpc(isTrustedSender);
+    ipcMain.on(IPC.windowConfirmClose, (e) => {
+      if (!isTrustedSender(e)) return;
       allowClose = true;
       mainWindow?.close();
     });

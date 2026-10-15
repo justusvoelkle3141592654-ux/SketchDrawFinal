@@ -224,9 +224,8 @@ function useDropAndPaste() {
       for (const f of [...e.dataTransfer.files]) {
         const bytes = new Uint8Array(await f.arrayBuffer());
         if (/\.cforge$/i.test(f.name)) {
-          const path = forge.getPathForFile(f);
-          const granted = path ? await forge.grantDroppedPath(path) : false;
-          await openFile({ path: granted ? path : f.name, name: f.name, bytes });
+          const path = await forge.grantDroppedFile(f);
+          await openFile({ path: path ?? f.name, name: f.name, bytes });
         } else if (/\.cforge-brushpack$/i.test(f.name)) {
           await importBrushPackBytes(bytes, f.name);
         } else if (/\.(png|jpe?g|webp)$/i.test(f.name)) {
