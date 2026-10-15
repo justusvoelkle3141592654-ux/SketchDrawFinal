@@ -174,3 +174,16 @@ Milestone 5: flipbook animation (frames, exposure, playback, onion skin), PNG-se
 
 Package the Windows build (NSIS installer + portable `.exe`) and launch-test the unpacked Linux build.
 
+---
+
+## Packaging
+
+| Command | Result |
+|---|---|
+| `npm run package:win` | succeeded (1 min 48 s) on the Linux build host with Wine 9.0 installed (needed by electron-builder for the NSIS uninstaller stub and for setting the executable's icon/version resources). Output: `release/Canvas Forge Setup 0.1.0.exe` (NSIS installer, 105 303 641 bytes, SHA-256 `5dddbfd4…8b5cc8`), `release/Canvas Forge 0.1.0 Portable.exe` (105 033 389 bytes, SHA-256 `df77f516…1b0bad`), `release/win-unpacked/Canvas Forge.exe`. |
+| PE inspection | x64 app executable; Canvas Forge icon (16–256 px) and product name in the resources; **no Authenticode signature** (certificate table empty — no code-signing certificate configured), so Windows SmartScreen will warn. |
+| `npm run package:linux-dir` | succeeded; `release/linux-unpacked/canvas-forge` launched under Xvfb with Playwright: packaged app (`app.asar`, `isPackaged = true`), new document, a stroke (7 177 painted pixels), save to `.cforge` — no page errors. |
+| Windows build under Wine 9 | the processes start, but no window appeared within 90 s — inconclusive (Wine is not Windows). **The `.exe` has not been launched on Windows 11.** |
+
+Also changed: the main window now shows itself after 4 s even if the first paint is never reported.
+

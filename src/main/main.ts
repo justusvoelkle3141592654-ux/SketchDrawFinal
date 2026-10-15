@@ -84,6 +84,10 @@ async function createWindow() {
 
   if (state.maximized) mainWindow.maximize();
   mainWindow.once('ready-to-show', () => mainWindow?.show());
+  // never stay invisible if the first paint is slow or never reported
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) mainWindow.show();
+  }, 4000);
 
   mainWindow.on('close', (e) => {
     if (!mainWindow) return;

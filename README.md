@@ -24,7 +24,7 @@ Canvas Forge is an offline raster drawing and painting application for Windows 1
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | Build, then Electron + Playwright smoke test (uses `xvfb-run` automatically on Linux without a display) |
 | `npm run perf` | Engine benchmarks (prints timings) |
-| `npm run package:win` | Windows NSIS installer + portable `.exe` into `release/` |
+| `npm run package:win` | Windows NSIS installer + portable `.exe` into `release/` (on Linux this needs Wine, including 32-bit support, for the NSIS uninstaller stub and the executable's icon/version resources; on Windows no extra tools are needed) |
 | `npm run package:linux-dir` | Unpacked Linux build (used to launch-test the packaged app on Linux) |
 
 `scripts/render-icons.mjs` regenerates `build/icon.png` and `build/icon.ico` from `build/icon.svg` (needs Playwright's Chromium and ImageMagick).

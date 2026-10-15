@@ -110,6 +110,6 @@ Each milestone ends with lint, typecheck, unit tests, a build, an update to `PRO
 
 - 8 bits per channel RGBA, sRGB, no colour management (documented).
 - CPU raster engine; GPU used for the view transform only.
-- Windows `.exe` is built with `signAndEditExecutable: false` (no Wine on the build host), so the executable is unsigned and keeps Electron's default version resources; installer and shortcut icons still use the Canvas Forge icon.
+- The Windows `.exe` is unsigned (no code-signing certificate). Its icon and version resources are set with rcedit, which on a Linux build host needs Wine.
 - PSD/TIFF are optional and only added if fidelity can be verified.
 - Electron E2E runs on Linux under Xvfb with mouse input; pen paths are covered by unit tests on synthetic samples.

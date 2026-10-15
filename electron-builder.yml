@@ -27,8 +27,9 @@ win:
     - target: portable
       arch: [x64]
   icon: build/icon.ico
-  # Building on Linux without Wine: skip rcedit/signing of the executable.
-  signAndEditExecutable: false
+  # The executable's icon and version resources are set with rcedit (on Linux this needs Wine).
+  # No code-signing certificate is configured, so the build is unsigned.
+  signAndEditExecutable: true
 nsis:
   oneClick: false
   perMachine: false
