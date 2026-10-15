@@ -243,45 +243,141 @@ export function compositeToGrid(
   return out;
 }
 
-export function mergeDown(doc: RasterDocument, id: string): HistoryEntry | null {
+/** True when list[i] is clipped to a layer below it (the first node of a list never clips). */
+function isClipped(list: LayerNode[], i: number): boolean {
+  if (i <= 0 || i >= list.length) return false;
+  const n = list[i];
+  return n.kind === 'raster' && n.clip;
+}
+
+/** Which nodes of a sibling list the compositor draws: visible ones whose clipping base is visible too. */
+function drawnFlags(list: LayerNode[]): boolean[] {
+  const out: boolean[] = [];
+  let baseShown = false;
+  for (let i = 0; i < list.length; i++) {
+    const shown: boolean = list[i].visible && (!isClipped(list, i) || baseShown);
+    if (!isClipped(list, i)) baseShown = shown;
+    out.push(shown);
+  }
+  return out;
+}
+
+/** Why the node cannot be merged down (user-facing), or null when it can. */
+export function mergeDownProblem(doc: RasterDocument, id: string): string | null {
   const loc = findLayer(doc.layers, id);
-  if (!loc || loc.index === 0) return null;
-  const upper = loc.node;
-  const lower = loc.siblings[loc.index - 1];
-  if (upper.kind !== 'raster' || lower.kind !== 'raster') return null;
+  const upper = loc?.node;
+  const lower = loc && loc.index > 0 ? loc.siblings[loc.index - 1] : undefined;
+  if (!loc || upper?.kind !== 'raster' || lower?.kind !== 'raster')
+    return 'Merge down needs a paint layer directly below the active paint layer.';
+  if (!upper.visible || !lower.visible) return 'Show both layers before merging down.';
+  if (lower.locked) return `"${lower.name}" is locked.`;
+  // A single layer cannot reproduce these clipping set-ups, so the result would differ from the canvas.
+  if (!upper.clip && isClipped(loc.siblings, loc.index - 1))
+    return `Merging into the clipped layer "${lower.name}" would clip "${upper.name}" too.`;
+  if (!upper.clip && isClipped(loc.siblings, loc.index + 1))
+    return `Layers are clipped to "${upper.name}". Merge or release them first.`;
+  return null;
+}
+
+/**
+ * Merges a paint layer into the paint layer below so the canvas looks the same: the upper layer's
+ * opacity, blend mode, mask and clipping are applied and alpha lock is ignored (it only restricts
+ * painting). The lower layer keeps its blend mode and clipping; layers clipped to it stay clipped to
+ * the result. Its opacity and enabled mask are baked into the pixels, except when the upper layer is
+ * clipped to it: then they apply to both layers on screen and stay as they are.
+ */
+export function mergeDown(doc: RasterDocument, id: string): HistoryEntry | null {
+  if (mergeDownProblem(doc, id)) return null;
+  const loc = findLayer(doc.layers, id)!;
+  const upper = loc.node as RasterLayer;
+  const lower = loc.siblings[loc.index - 1] as RasterLayer;
+  // Clipped upper over a base: source-atop on the lower pixels. When both are clipped to the
+  // same base further down, plain "over" keeps the shared clip exact.
+  const atop = upper.clip && !isClipped(loc.siblings, loc.index - 1);
+  const lowerMask = !atop && lower.mask && lower.maskEnabled ? lower.mask : null;
+  const bake = !atop && (lower.opacity < 1 || !!lowerMask);
+  const upperMask = upper.mask && upper.maskEnabled ? upper.mask : null;
+  const keys = new Set(upper.pixels.tiles.keys());
+  if (bake) for (const k of lower.pixels.tiles.keys()) keys.add(k);
   const recorder = new TileDiffRecorder(lower.pixels);
   const px = new Float32Array(4);
   const src = new Float32Array(4);
   const m = modeIndex(upper.blendMode);
-  if (upper.visible) {
-    for (const [k, t] of upper.pixels.tiles) {
-      recorder.captureTile(k);
-      const dst = lower.pixels.getOrCreate(keyTx(k), keyTy(k));
-      const mt = upper.mask && upper.maskEnabled ? upper.mask.get(keyTx(k), keyTy(k)) : undefined;
-      const maskDefault = upper.mask && upper.maskEnabled ? upper.mask.defaultValue / 255 : 1;
-      for (let i = 0, p = 0; i < t.length; i += 4, p++) {
-        if (!t[i + 3]) continue;
-        loadPremul(t, i, src, 0);
-        const k2 = upper.opacity * (mt ? mt[p] / 255 : maskDefault);
-        if (k2 <= 0) continue;
-        loadPremul(dst, i, px, 0);
-        blendInto(px, 0, src[0] * k2, src[1] * k2, src[2] * k2, src[3] * k2, m, lower.alphaLock);
-        storeStraight(px, 0, dst, i);
+  const n = doc.tileSize * doc.tileSize;
+  for (const k of keys) {
+    const tx = keyTx(k);
+    const ty = keyTy(k);
+    const ut = upper.pixels.get(tx, ty);
+    if (atop && !lower.pixels.get(tx, ty)) continue; // nothing to clip to
+    recorder.captureTile(k);
+    const dst = lower.pixels.getOrCreate(tx, ty);
+    const lmt = lowerMask?.get(tx, ty);
+    const ldef = lowerMask ? lowerMask.defaultValue / 255 : 1;
+    const umt = upperMask?.get(tx, ty);
+    const udef = upperMask ? upperMask.defaultValue / 255 : 1;
+    for (let p = 0, i = 0; p < n; p++, i += 4) {
+      const ua = ut ? ut[i + 3] : 0;
+      if (!bake && !ua) continue;
+      loadPremul(dst, i, px, 0);
+      if (bake) {
+        const lk = lower.opacity * (lmt ? lmt[p] / 255 : ldef);
+        px[0] *= lk;
+        px[1] *= lk;
+        px[2] *= lk;
+        px[3] *= lk;
       }
+      const uk = ua ? upper.opacity * (umt ? umt[p] / 255 : udef) : 0;
+      if (uk > 0) {
+        loadPremul(ut!, i, src, 0);
+        blendInto(px, 0, src[0] * uk, src[1] * uk, src[2] * uk, src[3] * uk, m, atop);
+      }
+      storeStraight(px, 0, dst, i);
     }
   }
   const pixelEntry = recorder.toEntry('merge pixels', (r) => doc.markPixelsChanged(r));
-  const structEntry = structural(doc, 'remove merged', () => {
-    loc.siblings.splice(loc.index, 1);
-    doc.activeLayerId = lower.id;
-  });
+  const structEntry = structural(
+    doc,
+    'remove merged',
+    () => {
+      loc.siblings.splice(loc.index, 1);
+      if (bake) lower.opacity = 1;
+      if (lowerMask) {
+        lower.mask = null;
+        lower.editMask = false;
+      }
+      doc.activeLayerId = lower.id;
+    },
+    layerByteSize(upper) + (lowerMask?.byteSize ?? 0),
+  );
   doc.markPixelsChanged(null);
   return compoundEntry(`Merge ${upper.name} down`, pixelEntry ? [pixelEntry, structEntry] : [structEntry]);
 }
 
+/** Counts the nodes the compositor draws (groups and their drawn children). */
+function countDrawn(list: LayerNode[]): number {
+  const shown = drawnFlags(list);
+  let c = 0;
+  list.forEach((n, i) => {
+    if (shown[i]) c += 1 + (n.kind === 'group' ? countDrawn(n.children) : 0);
+  });
+  return c;
+}
+
+/** Strips drawn content from a node: returns it if it is not drawn, a pruned group, or null. */
+function keepUndrawn(n: LayerNode, drawn: boolean): LayerNode | null {
+  if (!drawn) return n;
+  if (n.kind !== 'group') return null;
+  const shown = drawnFlags(n.children);
+  n.children = n.children.map((c, i) => keepUndrawn(c, shown[i])).filter((c): c is LayerNode => c !== null);
+  return n.children.length ? n : null;
+}
+
+/**
+ * Replaces everything the canvas shows with one 'Merged' layer. Hidden layers (also inside visible
+ * groups, which are kept to hold them) and layers clipped to a hidden base stay untouched.
+ */
 export function mergeVisible(doc: RasterDocument): HistoryEntry | null {
-  const visibleTop = doc.layers.filter((n) => n.visible);
-  if (visibleTop.length < 2) return null;
+  if (countDrawn(doc.layers) < 2) return null;
   const grid = compositeToGrid(doc, doc.layers);
   const merged = createRasterLayer('Merged', doc.tileSize);
   merged.pixels = grid;
@@ -289,9 +385,18 @@ export function mergeVisible(doc: RasterDocument): HistoryEntry | null {
     doc,
     'Merge visible',
     () => {
-      const firstIdx = doc.layers.findIndex((n) => n.visible);
-      doc.layers = doc.layers.filter((n) => !n.visible);
-      doc.layers.splice(Math.min(firstIdx, doc.layers.length), 0, merged);
+      const shown = drawnFlags(doc.layers);
+      const first = shown.indexOf(true);
+      const kept: LayerNode[] = [];
+      let at = 0;
+      doc.layers.forEach((n, i) => {
+        const k = keepUndrawn(n, shown[i]);
+        if (k) kept.push(k);
+        // the merged layer takes the place of the lowest drawn node (above what is left of it)
+        if (i === first) at = kept.length;
+      });
+      kept.splice(at, 0, merged);
+      doc.layers = kept;
       doc.activeLayerId = merged.id;
     },
     grid.byteSize,

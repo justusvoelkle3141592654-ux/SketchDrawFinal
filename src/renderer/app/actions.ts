@@ -147,9 +147,9 @@ export async function deleteLayer(id?: string) {
 
 export function mergeDown() {
   withSession((s) => {
-    const e = ops.mergeDown(s.doc, s.doc.activeLayerId);
-    if (!e) toast('info', 'Merge down needs a paint layer directly below the active paint layer.');
-    pushEntry(s, e);
+    const problem = ops.mergeDownProblem(s.doc, s.doc.activeLayerId);
+    if (problem) return toast('info', problem);
+    pushEntry(s, ops.mergeDown(s.doc, s.doc.activeLayerId));
   });
 }
 
