@@ -3,6 +3,10 @@ import type { ToolId } from '../state/ui';
 import { BrushTool } from './brush-tool';
 import { EyedropperTool } from './eyedropper';
 import { PanTool, RotateTool, ZoomTool } from './nav-tools';
+import { LassoTool, MarqueeTool, PolygonLassoTool, WandTool } from './select-tools';
+import { TransformTool } from './transform-tool';
+import { CropTool, FillTool, GradientTool, ShapeTool } from './paint-tools';
+import { TextTool } from './text-tool';
 import type { Tool } from './types';
 
 const tools = new Map<ToolId, Tool>();
@@ -17,6 +21,21 @@ registerTool('eyedropper', new EyedropperTool());
 registerTool('pan', new PanTool());
 registerTool('zoom', new ZoomTool());
 registerTool('rotate', new RotateTool());
+registerTool('select-rect', new MarqueeTool('rect'));
+registerTool('select-ellipse', new MarqueeTool('ellipse'));
+registerTool('select-lasso', new LassoTool());
+registerTool('select-polygon', new PolygonLassoTool());
+registerTool('select-wand', new WandTool());
+registerTool('transform', new TransformTool());
+registerTool('crop', new CropTool());
+registerTool('fill', new FillTool());
+registerTool('gradient', new GradientTool());
+registerTool('line', new ShapeTool('line'));
+registerTool('rect', new ShapeTool('rect'));
+registerTool('ellipse', new ShapeTool('ellipse'));
+registerTool('polygon', new ShapeTool('polygon'));
+registerTool('polyline', new ShapeTool('polyline'));
+registerTool('text', new TextTool());
 
 const fallback = tools.get('brush')!;
 

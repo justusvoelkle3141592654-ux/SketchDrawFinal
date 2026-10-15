@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useUi } from '../state/ui';
 import { Icon } from './icons';
 import { Button } from './controls/controls';
+import { usePrompt } from '../app/prompt';
 
 /** Shows `data-tip` text near hovered/focused elements after a short delay. */
 export function TooltipLayer() {
@@ -199,6 +200,54 @@ export function ConfirmModal() {
           </Button>
         ))}
       </div>
+    </Modal>
+  );
+}
+
+export function PromptModal() {
+  const req = usePrompt((s) => s.req);
+  const [text, setText] = useState('');
+  useEffect(() => {
+    if (req) setText(String(req.value));
+  }, [req]);
+  if (!req) return null;
+  const parsed = Number(text.replace(',', '.'));
+  const valid =
+    Number.isFinite(parsed) &&
+    parsed >= req.min &&
+    parsed <= req.max &&
+    (!req.integer || Number.isInteger(parsed));
+  const ok = () => valid && req.resolve(parsed);
+  return (
+    <Modal title={req.title} onClose={() => req.resolve(null)} width={360} testId="prompt-dialog">
+      <form
+        className="form-grid"
+        onSubmit={(e) => {
+          e.preventDefault();
+          ok();
+        }}
+      >
+        <label className="field">
+          <span className="field-label">
+            {req.label} ({req.min}–{req.max}
+            {req.unit ? ` ${req.unit}` : ''})
+          </span>
+          <input
+            className="text-input"
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            aria-invalid={!valid}
+            data-testid="prompt-input"
+          />
+        </label>
+        <div className="confirm-buttons">
+          <Button onClick={() => req.resolve(null)}>Cancel</Button>
+          <Button kind="primary" type="submit" disabled={!valid} testId="prompt-ok">
+            OK
+          </Button>
+        </div>
+      </form>
     </Modal>
   );
 }

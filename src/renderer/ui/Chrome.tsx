@@ -95,6 +95,7 @@ export function TitleBar() {
 }
 
 const GROUPS: { label: string; ids: string[] }[] = [
+  { label: 'Menu', ids: ['app.commands'] },
   { label: 'Document', ids: ['file.new', 'file.open', 'file.save', 'file.import', 'file.export'] },
   { label: 'History', ids: ['edit.undo', 'edit.redo'] },
   {

@@ -42,3 +42,61 @@ Build host for all results below: Linux x86_64 cloud VM (4 vCPU, Xeon 2.8 GHz), 
 ### Next concrete action
 
 Milestone 2: full Brush Lab (all sections, live test area, tip import, save/clone/reset), remaining daily-workflow polish (Orbit configuration UI checks, auto-hide panels), then Milestone 3 selection/transform/fill/shapes/text.
+
+---
+
+## Milestone 2 — daily art workflow ✅
+
+### Completed
+
+* Brush Lab (`Ctrl+B`): sections for tip, stroke, dynamics (editable curves), texture, colour and mixing; live stamp preview; name/category/engine; dirty state; save, save as new, reset to saved or to factory; greyscale tip and texture import from images; test area with white/grey/black/transparent backgrounds, pen/mouse drawing and replayable test strokes.
+* Everything else in the milestone (colour editor, palettes, eyedropper, 37-preset library, pucks, brush packs, tablet preferences and diagnostics, stabiliser, predictive stroke, Orbit, Focus Canvas, left-handed mode) was already delivered with M0/M1 (see above).
+
+### Verification
+
+* `npm run lint`, `npm run typecheck`, `npm test` (62 tests), `npm run test:e2e` (2 tests) passed before the Brush Lab commit `42c3c58`.
+* Xvfb screenshots checked: Brush Lab tip and dynamics tabs with replayed test strokes, Preferences → Input & Tablet, the Orbit ring, and eight presets drawn side by side on the canvas.
+
+---
+
+## Milestone 3 — edit, selection and layer power ✅
+
+### Completed
+
+* Selections: rectangle, ellipse, freehand lasso, polygonal lasso, magic wand (tolerance, contiguous, active layer or all layers); replace/add/subtract/intersect via tool options or Shift/Alt; anti-aliasing; feather (radius prompt); expand/contract; select all, deselect, invert; animated outline (stripe pattern that stays visible on diagonal edges); selections are undoable steps and are stored in `.cforge`.
+* Clipboard: cut, copy, copy merged, paste as floating pixels (transform frame, Enter/Esc), paste as new layer; PNG on the system clipboard; fill selection with the foreground colour (`Shift+Backspace`); selection-aware clear.
+* Transform tool: move, scale (Shift ratio, Alt centre), stretch, rotate (handle or outside), free corner distortion with a projective (homography) resample, arrow-key nudge, numeric X/Y/W/H/angle entry, flip and 90° buttons, Enter/Esc, Apply/Cancel; resampling in premultiplied space with a box prefilter for strong reductions; the selection follows the transformed pixels; thin content stays movable.
+* Image operations: crop tool (frame, handles, Free/1:1/Original, frame may extend beyond the canvas), crop to selection, canvas size with anchor, image size with proportional scaling, rotate canvas 90°/180°, flip canvas, flip layer — all single undo steps.
+* Painting tools: flood fill (tolerance, expand, opacity, contiguous, sample all layers), linear/radial gradient (foreground→background or →transparent, dithered), line, rectangle, ellipse, regular polygon, polyline — outlines with the active brush, optional fill, Ctrl constraints, grid snapping, symmetry applied to brush outlines.
+* Raster text tool: in-place editor on the canvas, font/size/bold/italic/alignment, places a new layer named after the text.
+* Adjustments on the active layer (inside the selection): brightness/contrast and hue/saturation/lightness with live, revertible preview; greyscale; invert.
+* Guides: draggable handles for ruler ends (15° snap), ellipse centre/radii (now drawn on the canvas), vanishing points (shared horizon), symmetry centre; grid size and shape snapping in the tool options.
+* Contextual tool-options strip for every tool; command search (`Ctrl+K`, ☰ button) listing every command by group with shortcuts; numeric prompt dialog.
+* Already present from earlier milestones: groups, thumbnails, colour labels, blend modes, alpha lock, clipping, masks, merge down/visible, flatten copy.
+
+### Files
+
+New: `src/renderer/engine/selection.ts`, `src/renderer/engine/pixel-ops.ts`, `src/renderer/state/tool-options.ts`, `src/renderer/app/{selection-actions,clipboard,prompt,adjust-actions}.ts`, `src/renderer/tools/{select-tools,transform-tool,paint-tools,text-tool,assist-handles}.ts`, `src/renderer/ui/{ToolOptionsBar,TextOverlay,CommandPalette}.tsx`, `src/renderer/ui/dialogs/ImageDialogs.tsx`, `tests/unit/{selection,pixelops}.test.ts`.
+Changed: `App.tsx`, `extended.ts`, `registry.ts`, `CanvasView.tsx`, `Overlays.tsx`, `Chrome.tsx`, `DialogHost.tsx`, `assist-overlay.ts`, `app.css`, `tests/e2e/smoke.spec.ts`, `USER_GUIDE.md`.
+
+### Commands run and results
+
+| Command | Result |
+|---|---|
+| `npm run lint` | 0 errors, 0 warnings |
+| `npm run typecheck` | passes |
+| `npm test` | 9 files, 89 tests passed (27 new: polygon rasterisation and anti-aliasing, combine modes, feather, grow/shrink, flood fill, outline, extract/trim/clear, exact integer moves with undo, scaling, rotation without dark fringes, homography corners, selection-weighted clear, mask transform, fill with alpha lock, gradient, adjustments, rotate/flip/canvas size/image size with undo) |
+| `npm run test:e2e` | 4 Electron tests passed under Xvfb (2 new: rectangle selection → `Ctrl+T` move → Enter → pixels moved and selection kept → undo restores; text tool places a "Text: Hello" layer with opaque glyph pixels) |
+| Manual (Xvfb scripts + screenshots) | rect/ellipse/lasso/polygon/wand selections, transform with numeric angle, fill, gradient, all shape tools, text editing, hue/saturation and brightness preview + cancel, image size, canvas size, crop with a new frame, rotate canvas + undo, copy/paste as layer, floating paste + Esc, expand selection prompt, command search running "Rotate canvas 90° clockwise" — history labels and document sizes checked after each step; no console errors |
+
+### Known limitations
+
+* Text is rasterised when placed; it cannot be edited as text afterwards.
+* Adjustments are destructive (no adjustment layers); the preview recomputes the whole layer, which takes noticeably longer on very large layers.
+* Fill, wand and feather work on full-document buffers (memory grows with document size).
+* Pasting an image copied in another application is implemented (system clipboard PNG) but was only exercised with Canvas Forge's own copies here.
+
+### Next concrete action
+
+Milestone 4: reference-image panel, workspace layouts, accessibility audit (contrast, focus order, names, target sizes), performance profiling of fill/selection/adjustments, error surfaces.
+

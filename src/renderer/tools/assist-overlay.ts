@@ -110,11 +110,22 @@ export function drawAssistOverlay(c: CanvasRenderingContext2D, info: OverlayInfo
         else c.moveTo(p.x, p.y);
       }
     });
-    const ctr = toScreen({ x: e.cx, y: e.cy });
-    c.fillStyle = 'rgba(93, 214, 200, 0.95)';
-    c.beginPath();
-    c.arc(ctr.x, ctr.y, 4, 0, Math.PI * 2);
-    c.fill();
+    // centre plus the two radius handles (same positions as hitAssistHandle)
+    const handles = [
+      { x: e.cx, y: e.cy },
+      { x: e.cx + Math.cos(e.angle) * e.rx, y: e.cy + Math.sin(e.angle) * e.rx },
+      { x: e.cx - Math.sin(e.angle) * e.ry, y: e.cy + Math.cos(e.angle) * e.ry },
+    ];
+    handles.forEach((h, i) => {
+      const p = toScreen(h);
+      c.fillStyle = 'rgba(93, 214, 200, 0.95)';
+      c.strokeStyle = 'rgba(0,0,0,0.6)';
+      c.beginPath();
+      if (i) c.rect(p.x - 4.5, p.y - 4.5, 9, 9);
+      else c.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+    });
   }
   if (a.perspective.enabled) {
     const vps = a.perspective.vps.slice(0, a.perspective.mode);

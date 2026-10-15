@@ -145,3 +145,78 @@ test('unsaved changes prompt on close and Cancel keeps the document', async () =
   await win.click('[data-testid=confirm-discard]');
   await expect(win.locator('[data-testid=doc-tab]')).toHaveCount(before - 1);
 });
+
+type HookWindow = Window & {
+  __cforge: {
+    activeSession: () => {
+      doc: {
+        width: number;
+        height: number;
+        selection: unknown;
+        layers: { name: string; pixels: { getPixel: (x: number, y: number) => number[] } }[];
+      };
+      view: { zoom: number };
+    };
+  };
+};
+
+const hasSelection = () =>
+  win.evaluate(() => !!(window as unknown as HookWindow).__cforge.activeSession().doc.selection);
+
+test('selection → move with the transform tool → undo restores the pixels', async () => {
+  await win.keyboard.press('Control+n');
+  await win.click('[data-testid=new-doc-create]');
+  await strokeAcrossCanvas();
+  const box = (await win.locator('[data-testid=canvas]').boundingBox())!;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  // rectangle selection around the middle of the stroke
+  await win.keyboard.press('m');
+  await win.mouse.move(cx - 60, cy - 40);
+  await win.mouse.down();
+  await win.mouse.move(cx + 60, cy + 40, { steps: 6 });
+  await win.mouse.up();
+  expect(await hasSelection()).toBe(true);
+  // move it down by 100 screen px and apply
+  await win.keyboard.press('Control+t');
+  await expect(win.locator('[data-testid=transform-apply]')).toBeVisible();
+  await win.mouse.move(cx, cy);
+  await win.mouse.down();
+  await win.mouse.move(cx, cy + 100, { steps: 8 });
+  await win.mouse.up();
+  await win.keyboard.press('Enter');
+  const zoom = await win.evaluate(() => (window as unknown as HookWindow).__cforge.activeSession().view.zoom);
+  const dy = Math.round(100 / zoom);
+  expect(await centreAlpha(0)).toBe(0);
+  expect(await centreAlpha(0, dy)).toBeGreaterThan(200);
+  // the selection followed the pixels
+  expect(await hasSelection()).toBe(true);
+  await win.keyboard.press('Control+z');
+  expect(await centreAlpha(0)).toBeGreaterThan(200);
+  expect(await centreAlpha(0, dy)).toBe(0);
+});
+
+test('text tool places raster text on a new layer', async () => {
+  await win.keyboard.press('Control+n');
+  await win.click('[data-testid=new-doc-create]');
+  const box = (await win.locator('[data-testid=canvas]').boundingBox())!;
+  await win.keyboard.press('t');
+  await win.mouse.click(box.x + box.width / 2 - 100, box.y + box.height / 2);
+  await expect(win.locator('[data-testid=text-overlay]')).toBeVisible();
+  await win.keyboard.type('Hello');
+  await win.click('[data-testid=text-commit]');
+  await expect(win.locator('[data-testid=text-overlay]')).toHaveCount(0);
+  const names = await win.evaluate(() =>
+    (window as unknown as HookWindow).__cforge.activeSession().doc.layers.map((l) => l.name),
+  );
+  expect(names).toContain('Text: Hello');
+  const opaque = await win.evaluate(() => {
+    const s = (window as unknown as HookWindow).__cforge.activeSession();
+    const l = s.doc.layers.find((x) => x.name === 'Text: Hello')!;
+    let n = 0;
+    for (let y = 0; y < s.doc.height; y += 2)
+      for (let x = 0; x < s.doc.width; x += 2) if (l.pixels.getPixel(x, y)[3] > 128) n++;
+    return n;
+  });
+  expect(opaque).toBeGreaterThan(50);
+});

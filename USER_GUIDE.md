@@ -5,7 +5,8 @@
 | Area | Purpose |
 |---|---|
 | Title bar | Open documents as tabs. A teal dot marks unsaved changes. Middle-click or × closes a tab (you are asked about unsaved changes). |
-| Command bar | Document, history, navigation, selection/transform, assists, drawing modes, panel toggles and Focus Canvas. Hover any button for its name and shortcut. |
+| Command bar | Command search (☰), document, history, navigation, selection/transform, assists, drawing modes, panel toggles and Focus Canvas. Hover any button for its name and shortcut. |
+| Tool options | A slim strip at the top of the canvas with the settings of the active tool (brush size, selection mode, tolerance, transform values, text font…). |
 | Tool rail (left) | Drawing, fill, selection, transform, shape, text and navigation tools, plus foreground/background colours. |
 | Canvas | Your document. The canvas always takes most of the window. |
 | Panels (right) | Colour, Brushes, Layers (visible by default), Palettes, Animation and Reference. Drag a panel title out of the dock to float it, drop it near the screen edge to dock it again, drag the dividers to resize. |
@@ -35,6 +36,58 @@
 * `X` swaps foreground/background colours, `D` resets them to black/white.
 * **Stabiliser** (`Shift+P`, configurable in Preferences → Strokes): *Smooth* removes jitter and catches up when you lift the pen; *Pulled string* trails the pen by a fixed distance.
 * **Predictive stroke** (`P`): after you lift the pen, almost straight strokes become clean lines and curves are smoothed.
+
+## Brushes and the Brush Lab
+
+* The **Brushes** panel lists 37 original presets in six categories (Sketch, Ink, Paint, Markers, Texture, Effects) plus your own. Search, filter by category or favourites (star) and drag to reorder. Each row has rename (`F2`) and delete buttons; the panel toolbar duplicates the active brush, imports and exports packs and restores the factory set.
+* **Brush Lab** (`Ctrl+B` or the brush name in the tool options): edit every setting of the active brush in sections — tip, stroke, dynamics (with editable curves), texture, colour and mixing. A test area (white, grey, black or transparent background) lets you draw with pen or mouse or replay standard test strokes. *Save* updates the brush, *Save as new* keeps the original, *Reset* returns to the last saved or to the factory settings. Tips and textures can be imported from greyscale images.
+* Brush packs (`.cforge-brushpack`) can be exported and imported from the Brushes panel toolbar or by dragging the file onto the window. If a pack contains brushes you already have, you choose *Keep both* or *Replace mine*.
+
+## Selections
+
+* Tools: rectangle `M`, ellipse `Shift+M`, lasso `L`, polygonal lasso `Shift+L` (click corners; click the first point, double-click or press Enter to close; Backspace removes the last point), magic wand `W`.
+* Hold `Shift` to add, `Alt` to subtract, `Shift+Alt` to intersect — or choose the mode in the tool options. `Ctrl` makes a square/circle. A click without dragging deselects.
+* Tool options: feather, anti-alias, draw from centre; for the wand tolerance, contiguous and *All layers*.
+* `Ctrl+A` select all, `Ctrl+D` deselect, `Ctrl+Shift+I` invert, `Ctrl+Alt+D` feather; *Expand/Contract selection* are in the command search.
+* Painting, fills, gradients, adjustments, *Clear* (`Delete`) and copy all respect the selection.
+
+## Cut, copy and paste
+
+* `Ctrl+X` cut, `Ctrl+C` copy (active layer), `Ctrl+Shift+C` copy merged (all visible layers).
+* `Ctrl+V` pastes as floating pixels on the active layer — position them with the transform frame and press Enter (Esc cancels). `Ctrl+Shift+V` pastes as a new layer.
+* Copied pixels also go to the system clipboard as PNG; images copied in other applications can be pasted.
+* `Shift+Backspace` fills the selection (or the layer) with the foreground colour.
+
+## Transform
+
+* `Ctrl+T` (or `V`, then drag) floats the selection — or the whole active layer — inside a frame.
+* Drag inside to move (arrow keys nudge by 1 px, with Shift by 10 px), drag a corner to scale (`Shift` keeps proportions, `Alt` scales from the centre), drag an edge to stretch, drag the knob above the frame or anywhere outside to rotate. `Ctrl`+drag a corner distorts freely (perspective).
+* The tool options show position, size and angle for exact numbers, plus flip and 90° rotation buttons.
+* `Enter` or *Apply* commits, `Esc` or *Cancel* restores. A selection moves together with its pixels.
+
+## Fill, gradient, shapes and text
+
+* **Fill** `G`: click to fill an area of similar colour. Options: tolerance, expand (closes small gaps at line-art edges), opacity, contiguous, sample all layers.
+* **Gradient** `Shift+G`: drag from start to end. Linear or radial; foreground → background or foreground → transparent. `Shift` snaps the angle.
+* **Shapes**: line `U`, rectangle `Shift+U`, ellipse, polygon and polyline (in the tool rail). Outlines are drawn with the active brush; rectangles, ellipses and polygons can also be filled. `Ctrl` makes squares and circles or snaps lines to 15°. With the grid visible and *Snap shapes* on, points snap to the grid.
+* **Text** `T`: click on the canvas and type. Choose font, size, bold, italic and alignment in the tool options. `Ctrl+Enter` or *Place text* turns it into a new raster layer named after the text; `Esc` cancels.
+
+## Image and adjustments
+
+* Command search or shortcuts: rotate the canvas 90°/180°, flip the canvas, crop to selection, **Image size** (`Ctrl+Alt+I`, resamples every layer) and **Canvas size** (`Ctrl+Alt+C`, adds or removes space around the artwork with an anchor).
+* **Crop** `C`: drag a frame (or drag the whole-canvas frame's handles), choose Free / 1:1 / Original ratio, press Enter or *Crop*. Esc resets the frame.
+* Layer flips are in the command search (*Flip layer horizontally/vertically*).
+* Adjustments change the pixels of the active layer, inside the selection if there is one: **Brightness / contrast** (`Ctrl+Alt+B`) and **Hue / saturation** (`Ctrl+U`) with a live preview, **Greyscale** (`Ctrl+Shift+U`) and **Invert** (`Ctrl+I`). Everything can be undone.
+
+## Drawing assists
+
+* **Symmetry** (`Shift+Y` cycles off → vertical → horizontal → four-way → radial → kaleidoscope). Drag the centre point to move it; the tool options set the mode and the number of segments.
+* **Ruler**, **ellipse** and **perspective** guides (command bar): strokes that start near a guide follow it. Drag the guide handles on the canvas — ruler ends (`Shift` snaps to 15°), ellipse centre and radius handles, vanishing points (1-, 2- or 3-point; the first two share a horizon unless `Shift` is held).
+* **Grid** (`Ctrl+'`): size in the tool options; *Snap shapes* makes shape tools snap to it.
+
+## Command search
+
+`Ctrl+K` or the ☰ button lists every command grouped like a menu, with its shortcut. Type to filter, use the arrow keys and Enter to run.
 
 ## Navigating
 

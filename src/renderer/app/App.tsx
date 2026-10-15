@@ -12,7 +12,11 @@ import { closeAllAndQuit, openFile, placeImageBytes, serializeSession } from './
 import { CanvasView, canvasController, heldKeys } from '../ui/CanvasView';
 import { CommandBar, FocusRestore, StartScreen, StatusBar, TitleBar, ToolRail } from '../ui/Chrome';
 import { FloatingPanels, PanelDock } from '../ui/PanelDock';
-import { ConfirmModal, Toasts, TooltipLayer } from '../ui/Overlays';
+import { ConfirmModal, PromptModal, Toasts, TooltipLayer } from '../ui/Overlays';
+import { ToolOptionsBar } from '../ui/ToolOptionsBar';
+import { TextOverlay } from '../ui/TextOverlay';
+import { usePrompt } from './prompt';
+import { CommandPalette, openPalette, usePalette } from '../ui/CommandPalette';
 import { DialogHost } from '../ui/dialogs/DialogHost';
 import { Orbit } from '../ui/Orbit';
 import {
@@ -69,6 +73,15 @@ function registerAll() {
       });
     },
   });
+  register({
+    id: 'app.commands',
+    label: 'All commands…',
+    group: 'App',
+    icon: 'menu',
+    keys: ['Ctrl+K'],
+    hint: 'Search and run any command',
+    run: openPalette,
+  });
   registerExtendedFeatures();
 }
 registerAll();
@@ -87,7 +100,7 @@ function useGlobalKeys() {
     const down = (e: KeyboardEvent) => {
       syncHeld(e);
       const ui = useUi.getState();
-      if (ui.dialog || ui.confirm) return;
+      if (ui.dialog || ui.confirm || usePrompt.getState().req || usePalette.getState().open) return;
       if (isTextInput(e.target)) return;
       const target = e.target as HTMLElement | null;
       const onControl =
@@ -300,6 +313,8 @@ export function App() {
         {!focusMode ? <ToolRail /> : null}
         <div className="canvas-area">
           <CanvasView />
+          {active && !focusMode ? <ToolOptionsBar /> : null}
+          {active ? <TextOverlay /> : null}
           {!active ? <StartScreen /> : null}
           {active ? <PuckDock /> : null}
           {active ? <Orbit /> : null}
@@ -313,6 +328,8 @@ export function App() {
       {!focusMode ? <FloatingPanels /> : null}
       <DialogHost />
       <ConfirmModal />
+      <PromptModal />
+      <CommandPalette />
       <Toasts />
       <TooltipLayer />
     </div>

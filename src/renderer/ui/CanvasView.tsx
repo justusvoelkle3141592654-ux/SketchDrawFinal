@@ -12,8 +12,26 @@ import { canvasViewport, setRedrawHandler } from '../app/actions';
 import { buildShortcutMap, runCommand } from '../app/commands';
 import { normalizeShortcut } from '../app/shortcuts';
 import { getTool, overlayTools } from '../tools/registry';
+import { commitTransform, isTransforming } from '../tools/transform-tool';
+import { commitText, useTextEdit } from '../tools/text-tool';
 import type { Tool, ToolContext, ToolPointer } from '../tools/types';
 import { drawAssistOverlay } from '../tools/assist-overlay';
+import { hitAssistHandle, type AssistDrag } from '../tools/assist-handles';
+
+/** Wraps a guide-handle drag in the tool interface so it uses the normal pointer life cycle. */
+function assistDragTool(drag: AssistDrag): Tool {
+  return {
+    cursor: () => 'grabbing',
+    down: () => true,
+    move: (ps, ctx) => {
+      const p = ps[ps.length - 1];
+      drag.move({ x: p.x, y: p.y }, p.shift);
+      ctx.requestDraw();
+    },
+    up: () => useDocs.getState().bump(),
+    cancel: () => useDocs.getState().bump(),
+  };
+}
 
 interface ActivePointer {
   id: number;
@@ -217,8 +235,13 @@ class CanvasController {
       temp = true;
     }
     if (e.pointerType === 'mouse' && e.button !== 0 && !temp) return;
-    const tool = getTool(toolId);
+    let tool = getTool(toolId);
     const p = this.toPointer(e, session);
+    if (!temp) {
+      // guide handles (ruler, ellipse, vanishing points, symmetry centre) take precedence over the tool
+      const drag = hitAssistHandle(session, { x: p.sx, y: p.sy }, this.ctx(session).toScreen);
+      if (drag) tool = assistDragTool(drag);
+    }
     try {
       this.canvas.setPointerCapture(e.pointerId);
     } catch {
@@ -466,6 +489,8 @@ export function CanvasView() {
     if (!c) return;
     c.cancelActive();
     const s = sessions.find((x) => x.id === activeId) ?? null;
+    if (isTransforming() && !isTransforming(s)) commitTransform();
+    if (useTextEdit.getState().active && useTextEdit.getState().session !== s) commitText();
     if (s && !s.viewInitialized && c.renderer.viewport.width > 10) {
       s.view = fitView(c.renderer.viewport, s.doc.width, s.doc.height);
       s.viewInitialized = true;
@@ -475,7 +500,12 @@ export function CanvasView() {
     c.updateCursor(s);
   }, [activeId, sessions]);
 
+  const prevTool = useRef<ToolId>(tool);
   useEffect(() => {
+    const c = canvasController;
+    const s = activeSession();
+    if (c && s && prevTool.current !== tool) getTool(prevTool.current).deactivate?.(c.ctx(s));
+    prevTool.current = tool;
     canvasController?.updateCursor();
     canvasController?.renderer.requestDraw();
   }, [tool]);
