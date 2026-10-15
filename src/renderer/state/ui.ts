@@ -122,6 +122,7 @@ export type DialogKind =
   | 'about'
   | 'shortcuts'
   | 'timelapse'
+  | 'animation-export'
   | 'recovery';
 
 export interface DialogState {

@@ -143,7 +143,9 @@ function useGlobalKeys() {
       // Tab moves keyboard focus through the interface; it toggles Focus Canvas only while the
       // canvas itself has focus (after drawing on it) or to leave Focus Canvas again
       if (k === 'Tab' && !ui.focusMode && !target?.classList.contains('canvas')) return;
-      if (onControl && (e.key === 'Enter' || e.key === ' ' || e.key.startsWith('Arrow'))) return;
+      // plain Enter/Space/arrows belong to the focused control; with Ctrl/Alt they stay shortcuts
+      const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+      if (onControl && plain && (e.key === 'Enter' || e.key === ' ' || e.key.startsWith('Arrow'))) return;
       const id = map.get(k);
       if (id) {
         e.preventDefault();

@@ -1,6 +1,7 @@
 // Draws the active document into the on-screen canvas. Composites dirty tile rectangles into a
 // document-sized surface (putImageData sub-rects), then draws that surface with one view transform.
 import { storeStraight } from '../engine/blend';
+import type { CompositeOptions } from '../engine/compositor';
 import {
   forEachTileInRect,
   intersectRect,
@@ -26,6 +27,19 @@ export interface OverlayInfo {
 
 export type OverlayFn = (ctx: CanvasRenderingContext2D, info: OverlayInfo) => void;
 
+/** What the view composites for a session (animation frames); `key` changes force a full recomposite. */
+export type DisplayProvider = (session: DocumentSession) => { options: CompositeOptions; key: string } | null;
+let displayProvider: DisplayProvider | null = null;
+export function setDisplayProvider(fn: DisplayProvider) {
+  displayProvider = fn;
+}
+
+/** A prepared image shown instead of the live composite (animation playback). */
+export interface PlaybackImage {
+  sessionId: string;
+  image: CanvasImageSource;
+}
+
 interface Surface {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
@@ -34,6 +48,7 @@ interface Surface {
   width: number;
   height: number;
   docId: string;
+  displayKey: string;
 }
 
 export class CanvasRenderer {
@@ -47,11 +62,12 @@ export class CanvasRenderer {
   private checker: CanvasPattern | null = null;
   viewport: Viewport = { width: 1, height: 1 };
   dpr = 1;
+  /** Shown instead of the live composite while an animation plays. */
+  playback: PlaybackImage | null = null;
   overlays = new Set<OverlayFn>();
   pixelGrid = true;
   /** Called once per animation frame (tools use it for airbrush timing). */
   onFrame: ((time: number) => void) | null = null;
-  /** Hidden-layer filter for animation playback / frames. */
   stats = { lastCompositeMs: 0, lastDrawMs: 0, pendingTiles: 0 };
   private workspaceColor = '#101215';
 
@@ -114,6 +130,28 @@ export class CanvasRenderer {
     this.markDirty(surf, session, null);
   }
 
+  /**
+   * A downscaled copy of the session's current view composite (cheap GPU blit), or null while
+   * composite work is still pending or the session has no surface yet.
+   */
+  snapshot(session: DocumentSession, maxSide: number): HTMLCanvasElement | null {
+    const surf = this.surfaces.get(session.id);
+    if (!surf || surf.dirty.size) return null;
+    const k = Math.min(1, maxSide / Math.max(surf.width, surf.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(surf.width * k));
+    c.height = Math.max(1, Math.round(surf.height * k));
+    const g = c.getContext('2d')!;
+    const bg = session.doc.background;
+    g.fillStyle = bg.transparent
+      ? '#ffffff'
+      : `rgb(${Math.round(bg.color.r * 255)}, ${Math.round(bg.color.g * 255)}, ${Math.round(bg.color.b * 255)})`;
+    g.fillRect(0, 0, c.width, c.height);
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(surf.canvas, 0, 0, c.width, c.height);
+    return c;
+  }
+
   /** True while composite work is pending. */
   get busy(): boolean {
     const s = this.session && this.surfaces.get(this.session.id);
@@ -141,6 +179,7 @@ export class CanvasRenderer {
         width: doc.width,
         height: doc.height,
         docId: doc.id,
+        displayKey: '',
       };
       surf.unsub = doc.onDirty((r) => this.markDirty(surf, session, r));
       this.surfaces.set(session.id, surf);
@@ -163,6 +202,13 @@ export class CanvasRenderer {
   }
 
   private processDirty(session: DocumentSession, surf: Surface, budgetMs: number) {
+    const display = displayProvider?.(session) ?? null;
+    const key = display?.key ?? '';
+    if (key !== surf.displayKey) {
+      // a different frame or onion setup: everything must be recomposited
+      surf.displayKey = key;
+      this.markDirty(surf, session, null);
+    }
     if (!surf.dirty.size) return;
     const start = performance.now();
     const ts = session.doc.tileSize;
@@ -175,7 +221,7 @@ export class CanvasRenderer {
     const data = img.data;
     for (const [k, r] of surf.dirty) {
       surf.dirty.delete(k);
-      session.compositor.compositeRect(r, acc);
+      session.compositor.compositeRect(r, acc, display?.options);
       const tx = Math.floor(r.x / ts);
       const ty = Math.floor(r.y / ts);
       const ox = r.x - tx * ts;
@@ -269,7 +315,10 @@ export class CanvasRenderer {
     }
     ctx.imageSmoothingEnabled = view.zoom < 2;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(surf.canvas, 0, 0);
+    if (this.playback && this.playback.sessionId === session.id) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(this.playback.image, 0, 0, doc.width, doc.height);
+    } else ctx.drawImage(surf.canvas, 0, 0);
     if (this.pixelGrid && view.zoom >= 8) this.drawPixelGrid(m);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const info: OverlayInfo = { session, matrix: m, viewport: this.viewport, dpr, toScreen, zoom: view.zoom };

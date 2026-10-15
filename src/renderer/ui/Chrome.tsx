@@ -13,6 +13,8 @@ import { IconButton } from './controls/controls';
 import { rgbToCss } from '../engine/color';
 import type { RecentEntry } from '../../shared/ipc';
 import { setZoom } from '../app/actions';
+import { animationOf, currentFrame, frames } from '../app/animation';
+import { timelapseSettings, useTimelapse } from '../app/timelapse';
 
 function CommandButton({ id, size }: { id: string; size?: number }) {
   useCommandState();
@@ -531,6 +533,7 @@ export function ToolRail() {
 
 export function StatusBar() {
   const s = useActiveSession();
+  useTimelapse((t) => t.rev);
   const tool = useUi((x) => x.tool);
   const fg = useColors((x) => x.fg);
   const brushes = useBrushes((x) => x.brushes);
@@ -550,6 +553,8 @@ export function StatusBar() {
     );
   }
   const deg = Math.round((s.view.rotation * 180) / Math.PI);
+  const animation = animationOf(s);
+  const recording = timelapseSettings(s).recording;
   return (
     <footer className="statusbar" aria-label="Status">
       <span className="status-item" data-tip="Active brush">
@@ -589,6 +594,27 @@ export function StatusBar() {
         {s.doc.width} × {s.doc.height} px · {s.doc.dpi} dpi
       </span>
       <span className="status-spacer" />
+      {animation.enabled ? (
+        <button
+          type="button"
+          className="status-item status-chip status-btn"
+          data-tip="Animation: current frame (opens the Animation panel)"
+          onClick={() => useUi.getState().togglePanel('animation', true)}
+        >
+          <Icon name="animation" size={13} /> Frame {Math.max(1, currentFrame(s) + 1)} / {frames(s).length}
+        </button>
+      ) : null}
+      {recording ? (
+        <button
+          type="button"
+          className="status-item status-chip status-rec status-btn"
+          data-tip="Recording a time-lapse (click to replay or stop)"
+          onClick={() => useUi.getState().openDialog('timelapse')}
+          data-testid="status-rec"
+        >
+          <span className="rec-dot" aria-hidden="true" /> REC
+        </button>
+      ) : null}
       {prefs.stabilizer.mode !== 'off' ? (
         <span className="status-item status-chip">
           Stabiliser {Math.round(prefs.stabilizer.amount * 100)}

@@ -17,6 +17,8 @@ import { commitText, useTextEdit } from '../tools/text-tool';
 import type { Tool, ToolContext, ToolPointer } from '../tools/types';
 import { drawAssistOverlay } from '../tools/assist-overlay';
 import { hitAssistHandle, type AssistDrag } from '../tools/assist-handles';
+import { attachRenderer, stop as stopPlayback, usePlayback } from '../app/animation';
+import { attachTimelapseRenderer } from '../app/timelapse';
 
 /** Wraps a guide-handle drag in the tool interface so it uses the normal pointer life cycle. */
 function assistDragTool(drag: AssistDrag): Tool {
@@ -65,6 +67,8 @@ class CanvasController {
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.renderer = new CanvasRenderer(canvas);
+    attachRenderer(this.renderer);
+    attachTimelapseRenderer(this.renderer);
     this.rect = canvas.getBoundingClientRect();
     this.renderer.onFrame = (t) => {
       const s = activeSession();
@@ -110,6 +114,8 @@ class CanvasController {
 
   destroy() {
     for (const d of this.disposers) d();
+    attachRenderer(null);
+    attachTimelapseRenderer(null);
     this.renderer.destroy();
   }
 
@@ -188,6 +194,11 @@ class CanvasController {
   private onDown(e: PointerEvent) {
     const session = activeSession();
     if (!session) return;
+    if (usePlayback.getState().playing) {
+      // touching the canvas during playback stops it on the frame that was showing
+      stopPlayback(true);
+      return;
+    }
     this.updateRect();
     const prefs = getPrefs();
     if (e.pointerType === 'touch') {

@@ -9,6 +9,7 @@ import { Icon } from '../icons';
 import { IconButton } from '../controls/controls';
 import { extractPalette } from '../../engine/palette-extract';
 import { Compositor } from '../../engine/compositor';
+import { frameOptions } from '../../app/animation';
 
 export function PalettesPanel() {
   const palettes = useColors((s) => s.palettes);
@@ -73,7 +74,7 @@ export function PalettesPanel() {
     const s = activeSession();
     if (!s) return toast('info', 'Open a document first.');
     const comp = new Compositor(s.doc);
-    const data = comp.compositeToRGBA(s.doc.bounds);
+    const data = comp.compositeToRGBA(s.doc.bounds, frameOptions(s));
     const colors = extractPalette(data, s.doc.width, s.doc.height, 12);
     if (!colors.length) return toast('info', 'The canvas has no visible colours yet.');
     store.addPalette({ name: `${s.displayName} colours`, colors: colors.map(rgbToHex) });

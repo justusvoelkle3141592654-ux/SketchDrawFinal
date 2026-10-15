@@ -5,6 +5,7 @@ import { PreferencesDialog } from './PreferencesDialog';
 import { BrushLab } from './BrushLab';
 import { RecoveryDialog } from './RecoveryDialog';
 import { AdjustDialog, CanvasSizeDialog, ImageSizeDialog } from './ImageDialogs';
+import { AnimationExportDialog, TimelapseDialog } from './AnimationDialogs';
 
 export function DialogHost() {
   const dialog = useUi((s) => s.dialog);
@@ -28,6 +29,10 @@ export function DialogHost() {
       return <CanvasSizeDialog />;
     case 'adjust':
       return <AdjustDialog />;
+    case 'animation-export':
+      return <AnimationExportDialog />;
+    case 'timelapse':
+      return <TimelapseDialog />;
     default:
       return null;
   }

@@ -56,6 +56,9 @@
   --checker-a: #ffffff;
   --checker-b: #e3e5e8;
   --scrim: rgba(30, 34, 40, 0.35);
+  --recording: #b42335;
+  --warning: #8a5a12;
+  --danger: #b5323f;
 }
 
 :root {

@@ -17,9 +17,19 @@ export interface StrokePreview {
   alphaLock: boolean;
 }
 
+/** Display override for one node (animation onion skins): extra opacity and an optional tint. */
+export interface NodeStyle {
+  opacity: number;
+  tint: { r: number; g: number; b: number } | null;
+  /** 0..1 mix toward the tint colour, alpha preserved. */
+  tintAmount: number;
+}
+
 export interface CompositeOptions {
   /** Return false to hide a node (used by animation frames / onion skin). */
   isVisible?: (node: LayerNode) => boolean;
+  /** Per-node display style (onion skins); nodes with a style are composited as Normal. */
+  nodeStyle?: (node: LayerNode) => NodeStyle | null;
   /** Ignore the document background (export with transparency, onion skin). */
   skipBackground?: boolean;
   /** Composite only these root nodes instead of document.layers. */
@@ -121,6 +131,29 @@ export class Compositor {
     opts: CompositeOptions,
   ): void {
     const n = r.w * r.h * 4;
+    const style = opts.nodeStyle?.(node);
+    if (style) {
+      const content = this.pool.get(depth);
+      if (!this.nodeContent(node, r, content, depth, opts)) return;
+      const o = node.opacity * style.opacity;
+      const t = style.tint;
+      const k = t ? style.tintAmount : 0;
+      for (let i = 0; i < n; i += 4) {
+        const ca = content[i + 3];
+        if (ca <= 0) continue;
+        const a = ca * o;
+        const kk = 1 - a;
+        // premultiplied: mixing toward the tint keeps alpha, so the tint is scaled by coverage
+        const cr = t ? content[i] + (t.r * ca - content[i]) * k : content[i];
+        const cg = t ? content[i + 1] + (t.g * ca - content[i + 1]) * k : content[i + 1];
+        const cb = t ? content[i + 2] + (t.b * ca - content[i + 2]) * k : content[i + 2];
+        acc[i] = cr * o + acc[i] * kk;
+        acc[i + 1] = cg * o + acc[i + 1] * kk;
+        acc[i + 2] = cb * o + acc[i + 2] * kk;
+        acc[i + 3] = a + acc[i + 3] * kk;
+      }
+      return;
+    }
     if (node.kind === 'group' && node.passThrough && !clipped) {
       if (node.opacity >= 1) {
         this.compositeList(node.children, r, acc, depth + 1, opts);

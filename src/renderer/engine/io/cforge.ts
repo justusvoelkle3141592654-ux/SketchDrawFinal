@@ -7,7 +7,7 @@ import { RasterDocument, MAX_DOCUMENT_SIDE } from '../document';
 import type { GroupLayer, LabelColor, LayerNode, RasterLayer } from '../layers';
 import { LABEL_COLORS } from '../layers';
 import { MaskGrid, TileGrid, keyTx, keyTy } from '../tiles';
-import { Compositor } from '../compositor';
+import { Compositor, type CompositeOptions } from '../compositor';
 import { encodePng } from './png';
 import type { ViewState } from '../view';
 import { validateBrush, type BrushPreset } from '../brush/schema';
@@ -134,9 +134,10 @@ function layerToJson(n: LayerNode, files: Zippable): RasterJson | GroupJson {
 export function renderPreview(
   doc: RasterDocument,
   maxSide: number,
+  options?: CompositeOptions,
 ): { width: number; height: number; data: Uint8ClampedArray } {
   const comp = new Compositor(doc);
-  const full = comp.compositeToRGBA(doc.bounds);
+  const full = comp.compositeToRGBA(doc.bounds, options);
   return downscale({ width: doc.width, height: doc.height, data: full }, maxSide);
 }
 
@@ -195,8 +196,9 @@ export function downscale(
 function previewSource(
   doc: RasterDocument,
   maxSide: number,
+  options?: CompositeOptions,
 ): { width: number; height: number; data: Uint8ClampedArray } {
-  if (Math.max(doc.width, doc.height) <= 2048) return renderPreview(doc, maxSide);
+  if (Math.max(doc.width, doc.height) <= 2048) return renderPreview(doc, maxSide, options);
   const comp = new Compositor(doc);
   const k = Math.min(1, maxSide / Math.max(doc.width, doc.height));
   const w = Math.max(1, Math.round(doc.width * k));
@@ -214,7 +216,7 @@ function previewSource(
         w: Math.min(ts, doc.width - tx * ts),
         h: Math.min(ts, doc.height - ty * ts),
       };
-      comp.compositeRect(r, acc);
+      comp.compositeRect(r, acc, options);
       // 2×2 samples per output pixel inside this tile
       const step = Math.max(1, Math.floor(1 / k / 2));
       for (let y = 0; y < r.h; y += step) {
@@ -249,6 +251,8 @@ export interface SerializeOptions extends DocumentExtras {
   appVersion: string;
   /** Skip preview/thumbnail generation (faster autosave). */
   skipPreviews?: boolean;
+  /** What the preview shows (e.g. only the current animation frame). */
+  previewOptions?: CompositeOptions;
 }
 
 export function buildCforgeFiles(doc: RasterDocument, opts: SerializeOptions): Zippable {
@@ -306,7 +310,7 @@ export function buildCforgeFiles(doc: RasterDocument, opts: SerializeOptions): Z
   }
   if (!opts.skipPreviews) {
     // one composite at a bounded resolution feeds both previews
-    const prev = previewSource(doc, 1024);
+    const prev = previewSource(doc, 1024, opts.previewOptions);
     files['preview.png'] = [encodePng(prev.width, prev.height, prev.data, { level: 6 }), { level: 0 }];
     const thumb = downscale(prev, 256);
     files['thumbnail.png'] = [encodePng(thumb.width, thumb.height, thumb.data, { level: 6 }), { level: 0 }];

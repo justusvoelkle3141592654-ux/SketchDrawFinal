@@ -13,6 +13,7 @@ import { toast } from '../state/ui';
 import { decodeImageBytes } from './image-codec';
 import { beginPasteTransform } from '../tools/transform-tool';
 import { requestRedraw } from './actions';
+import { frameOptions } from './animation';
 
 let internal: { block: PixelBlock; w: number; h: number } | null = null;
 
@@ -38,7 +39,7 @@ export async function copy(merged = false): Promise<boolean> {
   const { s, sel, area } = a;
   let block: PixelBlock | null;
   if (merged) {
-    const data = new Compositor(s.doc).compositeToRGBA(area);
+    const data = new Compositor(s.doc).compositeToRGBA(area, frameOptions(s));
     block = { ...area, data };
     if (sel) {
       const m = sel.readRect(area);

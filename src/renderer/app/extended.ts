@@ -16,6 +16,8 @@ import { useColors } from '../state/colors';
 import type { IconName } from '../ui/icons';
 import { adjustTarget, applyAdjustmentNow } from './adjust-actions';
 import { addReferenceFromClipboard, addReferenceFromDialog } from './references';
+import * as Anim from './animation';
+import { timelapseSettings, toggleRecording } from './timelapse';
 
 function assist(fn: (a: NonNullable<ReturnType<typeof activeSession>>['assist']) => void) {
   const s = activeSession();
@@ -390,6 +392,125 @@ export function registerExtendedFeatures() {
     icon: 'paste',
     run: () => void addReferenceFromClipboard(),
     enabled: hasDoc,
+  });
+  const animOn = () => {
+    const s = activeSession();
+    return !!s && Anim.animationOf(s).enabled;
+  };
+  const withS = (fn: (s: NonNullable<ReturnType<typeof activeSession>>) => void) => () => {
+    const s = activeSession();
+    if (s) fn(s);
+  };
+  register({
+    id: 'anim.toggle',
+    label: 'Animation (flipbook)',
+    group: 'Animation',
+    icon: 'animation',
+    hint: 'Every top-level layer or group becomes a frame. Opens the Animation panel.',
+    enabled: hasDoc,
+    checked: animOn,
+    run: withS((s) => {
+      const on = !Anim.animationOf(s).enabled;
+      Anim.setAnimationEnabled(s, on);
+      if (on) useUi.getState().togglePanel('animation', true);
+    }),
+  });
+  register({
+    id: 'anim.play',
+    label: 'Play / pause animation',
+    group: 'Animation',
+    icon: 'play',
+    keys: ['Ctrl+Enter'],
+    enabled: animOn,
+    run: Anim.togglePlay,
+  });
+  register({
+    id: 'anim.prev',
+    label: 'Previous frame',
+    group: 'Animation',
+    icon: 'chevronLeft',
+    keys: [','],
+    enabled: animOn,
+    run: withS((s) => Anim.stepFrame(s, -1)),
+  });
+  register({
+    id: 'anim.next',
+    label: 'Next frame',
+    group: 'Animation',
+    icon: 'chevronRight',
+    keys: ['.'],
+    enabled: animOn,
+    run: withS((s) => Anim.stepFrame(s, 1)),
+  });
+  register({
+    id: 'anim.addFrame',
+    label: 'New frame',
+    group: 'Animation',
+    icon: 'frameAdd',
+    keys: ['Ctrl+Alt+N'],
+    enabled: animOn,
+    run: withS(Anim.addFrame),
+  });
+  register({
+    id: 'anim.duplicateFrame',
+    label: 'Duplicate frame',
+    group: 'Animation',
+    icon: 'duplicate',
+    keys: ['Ctrl+Alt+J'],
+    enabled: animOn,
+    run: withS(Anim.duplicateFrame),
+  });
+  register({
+    id: 'anim.deleteFrame',
+    label: 'Delete frame…',
+    group: 'Animation',
+    icon: 'trash',
+    enabled: animOn,
+    run: withS((s) => void Anim.deleteFrame(s)),
+  });
+  register({
+    id: 'anim.onion',
+    label: 'Onion skin',
+    group: 'Animation',
+    icon: 'onion',
+    keys: ['O'],
+    enabled: animOn,
+    checked: () => {
+      const s = activeSession();
+      return !!s && Anim.animationOf(s).onion.enabled;
+    },
+    run: withS((s) =>
+      Anim.updateAnimation(s, 'Onion skin', (a) => void (a.onion.enabled = !a.onion.enabled)),
+    ),
+  });
+  register({
+    id: 'anim.export',
+    label: 'Export animation…',
+    group: 'Animation',
+    icon: 'export',
+    enabled: animOn,
+    run: () => useUi.getState().openDialog('animation-export'),
+  });
+  register({
+    id: 'timelapse.record',
+    label: 'Record time-lapse',
+    group: 'Animation',
+    icon: 'record',
+    hint: 'Keeps a small snapshot after your edits and saves them with the document.',
+    enabled: hasDoc,
+    checked: () => {
+      const s = activeSession();
+      return !!s && timelapseSettings(s).recording;
+    },
+    run: toggleRecording,
+  });
+  register({
+    id: 'timelapse.view',
+    label: 'Time-lapse replay and export…',
+    group: 'Animation',
+    icon: 'timelapse',
+    enabled: hasDoc,
+    run: () => useUi.getState().openDialog('timelapse'),
   });
   register({
     id: 'assist.symmetry',

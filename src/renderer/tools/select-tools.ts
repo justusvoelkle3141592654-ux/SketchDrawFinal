@@ -13,6 +13,7 @@ import { toolOpts } from '../state/tool-options';
 import type { Tool, ToolContext, ToolPointer } from './types';
 import { Compositor } from '../engine/compositor';
 import { toast } from '../state/ui';
+import { frameOptions } from '../app/animation';
 
 /** Modifier keys at pointer-down override the combine mode: Shift add, Alt subtract, both intersect. */
 function combineFor(p: ToolPointer): CombineMode {
@@ -258,7 +259,11 @@ export class PolygonLassoTool implements Tool {
 /** Returns the straight RGBA source used by the wand and fill tools. */
 export function sampleSource(ctx: ToolContext, all: boolean): Uint8ClampedArray | null {
   const doc = ctx.session.doc;
-  if (all) return new Compositor(doc).compositeToRGBA(doc.bounds, { skipBackground: false });
+  if (all)
+    return new Compositor(doc).compositeToRGBA(doc.bounds, {
+      ...frameOptions(ctx.session),
+      skipBackground: false,
+    });
   const l = doc.activeRaster;
   if (!l) return null;
   return l.pixels.readRect(doc.bounds);

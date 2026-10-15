@@ -11,6 +11,7 @@ import { usePrefs } from '../../state/preferences';
 import { forge } from '../../platform';
 import type { AppInfo } from '../../../shared/ipc';
 import { AppMark } from '../icons';
+import { animationOf } from '../../app/animation';
 
 const PRESETS: { id: string; label: string; w: number; h: number; dpi: number }[] = [
   { id: 'hd', label: 'Screen 1920 × 1080', w: 1920, h: 1080, dpi: 144 },
@@ -272,6 +273,12 @@ export function ExportDialog() {
             {s.doc.background.transparent ? 'white' : 'the background colour'}.
           </p>
         )}
+        {animationOf(s).enabled ? (
+          <p className="muted">
+            This document is animated: the current frame (with held layers, without onion skins) is exported.
+            Use Export animation for GIF or a PNG sequence.
+          </p>
+        ) : null}
         <p className="muted">
           {w} × {h} px · file name “{expandNameTemplate(template, s, w, h)}” (change the template in
           Preferences)

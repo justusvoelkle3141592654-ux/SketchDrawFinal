@@ -20,6 +20,8 @@ export function TooltipLayer() {
         if (current.current !== el || !el.isConnected) return;
         const r = el.getBoundingClientRect();
         const above = r.bottom + 40 > window.innerHeight;
+        // the visible tip is presentational; its text is offered as the element's description
+        el.setAttribute('aria-describedby', 'cf-tooltip');
         setTip({
           text,
           x: Math.min(window.innerWidth - 12, Math.max(12, r.left + r.width / 2)),
@@ -30,6 +32,7 @@ export function TooltipLayer() {
     };
     const hide = () => {
       if (timer.current) clearTimeout(timer.current);
+      current.current?.removeAttribute('aria-describedby');
       current.current = null;
       setTip(null);
     };
@@ -38,6 +41,7 @@ export function TooltipLayer() {
       const el = (e.target as HTMLElement | null)?.closest?.('[data-tip]') as HTMLElement | null;
       if (!el) return hide();
       if (el !== current.current) {
+        current.current?.removeAttribute('aria-describedby');
         setTip(null);
         show(el, 480);
       }
@@ -62,9 +66,11 @@ export function TooltipLayer() {
   if (!tip) return null;
   return (
     <div
+      id="cf-tooltip"
       className={`tooltip ${tip.above ? 'is-above' : ''}`}
       style={{ left: tip.x, top: tip.y }}
       role="tooltip"
+      aria-hidden="true"
     >
       {tip.text}
     </div>
@@ -75,36 +81,38 @@ export function Toasts() {
   const toasts = useUi((s) => s.toasts);
   const dismiss = useUi((s) => s.dismissToast);
   return (
-    <div className="toasts" role="status" aria-live="polite">
-      {toasts.map((t) => (
-        <div key={t.id} className={`toast toast-${t.kind}`}>
-          <Icon
-            name={
-              t.kind === 'error'
-                ? 'warning'
-                : t.kind === 'success'
-                  ? 'check'
-                  : t.kind === 'warning'
-                    ? 'warning'
-                    : 'info'
-            }
-            size={16}
-          />
-          <div className="toast-body">
-            <div className="toast-text">{t.text}</div>
-            {t.detail ? <div className="toast-detail">{t.detail}</div> : null}
+    <section className="toasts" aria-label="Notifications">
+      <div className="toasts-list" role="status" aria-live="polite">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast toast-${t.kind}`}>
+            <Icon
+              name={
+                t.kind === 'error'
+                  ? 'warning'
+                  : t.kind === 'success'
+                    ? 'check'
+                    : t.kind === 'warning'
+                      ? 'warning'
+                      : 'info'
+              }
+              size={16}
+            />
+            <div className="toast-body">
+              <div className="toast-text">{t.text}</div>
+              {t.detail ? <div className="toast-detail">{t.detail}</div> : null}
+            </div>
+            <button
+              type="button"
+              className="toast-close"
+              aria-label="Dismiss notification"
+              onClick={() => dismiss(t.id)}
+            >
+              <Icon name="close" size={14} />
+            </button>
           </div>
-          <button
-            type="button"
-            className="toast-close"
-            aria-label="Dismiss notification"
-            onClick={() => dismiss(t.id)}
-          >
-            <Icon name="close" size={14} />
-          </button>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

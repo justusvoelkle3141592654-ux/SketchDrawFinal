@@ -135,3 +135,42 @@ Milestone 4: reference-image panel, workspace layouts, accessibility audit (cont
 
 Milestone 5: flipbook animation (frames, exposure, playback, onion skin), PNG-sequence and GIF export, time-lapse; then Windows packaging.
 
+---
+
+## Milestone 5 — animation and interoperability ✅ (PSD/TIFF not implemented)
+
+### Completed
+
+* Flipbook: every top-level layer or group is a frame (bottom = first); frame strip with thumbnails, current-frame highlight, keyboard navigation (`,` `.` and arrows); new / duplicate / delete / move earlier / move later; per-frame exposure (1–48 ticks); frame rate 1–60 fps; loop; held background and foreground layers; the current frame follows the active layer (and vice versa); status-bar frame indicator; settings saved in `features.animation` and undoable.
+* Onion skin: configurable frames before/after (0–5), opacity with linear fade, red/blue tint; rendered by the compositor underneath the current frame (new per-node display style), never included in exports, picking, copy merged, fill/wand sampling or file previews (all of these use the current frame).
+* Playback: frames are pre-rendered (cached by content signature, ≤ 2048 px and a 480 MB budget) and shown at the frame rate with exposures; a click on the canvas stops on the visible frame.
+* Export: animated GIF via gifenc (per-frame palette, delays from exposure and fps, loop flag, optional one-colour transparency) and PNG sequence (one PNG per tick, so exposures survive) at 10–100 % size.
+* Time-lapse: optional recording per document; after edits settle, a 720 px WebP snapshot of the already composited view is taken (≥ 1.2 s apart, no extra compositing work); stored in the `.cforge` file; thinned out beyond 1800 frames; REC indicator; replay dialog with scrubbing and speed; GIF and PNG-sequence export; delete recording.
+* Also fixed while testing: `Ctrl`/`Alt` shortcuts with Enter, Space or arrows now work while a button has focus; toasts live in a labelled region; tooltips are exposed as the focused element's description.
+
+### Not implemented
+
+* PSD import/export and TIFF export (optional in the brief; not started, so nothing is claimed).
+* Video (MP4/WebM) export.
+
+### Commands run and results
+
+| Command | Result |
+|---|---|
+| `npm run lint` | 0 errors, 0 warnings |
+| `npm run typecheck` | passes |
+| `npm test` | 10 files, 98 tests passed (new: frame layout with held layers, active layer → frame incl. groups, exposures/timeline/looping, onion order/opacity/tint, compositor onion rendering, settings sanitising) |
+| `npm run test:e2e` | 7 Electron tests passed under Xvfb (new: flipbook — two frames, exposure ×2, playback shows both frames and stops on click, GIF parsed block by block = 2 frames 1080 × 1350 with loop extension, PNG sequence = 3 files, save → reopen keeps frames and exposure; time-lapse — recording after edits, REC marker, replay dialog; accessibility test now includes the animation panel and both dialogs) |
+| `npx prettier --check .` | clean |
+| Manual (Xvfb screenshots) | onion skin view (previous red, next blue), playback, export dialog, time-lapse replay dialog with 7 recorded frames and GIF export (720 × 405) |
+
+### Known limitations
+
+* Thumbnails in the frame strip are approximations (Normal blending, masks ignored).
+* Exporting very long or very large PNG sequences sends all files to the main process at once (memory heavy).
+* GIF transparency is one bit: soft edges become hard.
+
+### Next concrete action
+
+Package the Windows build (NSIS installer + portable `.exe`) and launch-test the unpacked Linux build.
+

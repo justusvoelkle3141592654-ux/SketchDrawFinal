@@ -13,6 +13,7 @@ import { decodeImageBytes, encodeImage, resizeRGBA } from './image-codec';
 import { usePrefs } from '../state/preferences';
 import { Compositor } from '../engine/compositor';
 import { validateBrush } from '../engine/brush/schema';
+import { frameOptions } from './animation';
 
 export const APP_VERSION = '0.1.0';
 
@@ -153,6 +154,7 @@ export async function serializeSession(s: DocumentSession, skipPreviews = false)
     features: featuresFor(s),
     resources: s.resources,
     skipPreviews,
+    previewOptions: frameOptions(s),
   });
 }
 
@@ -324,7 +326,8 @@ export async function exportImage(s: DocumentSession, opts: ExportOptions): Prom
   const doc = s.doc;
   const comp = new Compositor(doc);
   const skipBackground = opts.transparent && opts.format !== 'jpeg';
-  let data = comp.compositeToRGBA(doc.bounds, { skipBackground });
+  // in an animation this is the current frame (held layers included, no onion skins)
+  let data = comp.compositeToRGBA(doc.bounds, { ...frameOptions(s), skipBackground });
   let w = doc.width;
   let h = doc.height;
   if (opts.scale !== 1) {

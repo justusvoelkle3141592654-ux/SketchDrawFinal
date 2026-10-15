@@ -85,6 +85,22 @@
 * **Ruler**, **ellipse** and **perspective** guides (command bar): strokes that start near a guide follow it. Drag the guide handles on the canvas — ruler ends (`Shift` snaps to 15°), ellipse centre and radius handles, vanishing points (1-, 2- or 3-point; the first two share a horizon unless `Shift` is held).
 * **Grid** (`Ctrl+'`): size in the tool options; *Snap shapes* makes shape tools snap to it.
 
+## Animation (flipbook)
+
+Turn on animation from the Animation panel (`F8`) or *Animation (flipbook)* in the command search. Every **top-level** layer or group is one frame, from the bottom (first frame) to the top (last frame); a group lets one frame have several layers.
+
+* The frame strip shows all frames; click one (or use `,` and `.`) to draw on it. The layers panel and the strip always agree: selecting a layer selects its frame.
+* *New frame* (`Ctrl+Alt+N`) adds an empty frame after the current one, *Duplicate frame* (`Ctrl+Alt+J`) copies it; delete, and move earlier/later with the frame buttons.
+* **Exposure**: `−` / `+` hold the current frame for several ticks (shown as ×2, ×3 …). The frame rate (fps) sets how long a tick lasts.
+* **Onion skin** (`O`): earlier frames appear tinted red, later frames blue, fading with distance. Set how many frames, their opacity and the tint under *Onion skin and held layers*. Onion skins are never exported.
+* **Held layers**: the bottom layer can act as a background and the top layer as a foreground that stay visible behind/above every frame.
+* **Playback**: `Ctrl+Enter` or the play button. Frames are prepared first (progress in the panel), then play at the frame rate, looping if *Loop* is on. Touching the canvas stops playback on the frame that was showing.
+* **Export animation…**: animated GIF (up to 256 colours per frame; optional one-colour transparency) or a PNG sequence with one file per tick, at 10–100 % size. *Export image* on an animated document exports only the current frame.
+
+## Time-lapse
+
+*Record time-lapse* (command search, or the switch in *Time-lapse replay and export…*) keeps a small snapshot (720 px on the long side) after your edits — at most one every 1.2 seconds, taken from what is already on screen so drawing is not slowed down. The snapshots are saved inside the `.cforge` file; a red **REC** marker in the status bar shows that recording is on (click it to replay). In the replay dialog you can scrub, play at 5–60 fps and export a GIF or PNG sequence. Very long recordings are thinned out automatically (every second snapshot is dropped beyond 1800).
+
 ## Reference images
 
 The **Reference** panel (`F9`, or *Add reference image…* in the command search) shows images next to your canvas.

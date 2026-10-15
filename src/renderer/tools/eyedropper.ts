@@ -4,6 +4,7 @@ import { rgbToCss } from '../engine/color';
 import { useColors } from '../state/colors';
 import { useUi } from '../state/ui';
 import type { Tool, ToolContext, ToolPointer } from './types';
+import { frameOptions } from '../app/animation';
 
 export function sampleColor(
   ctx: ToolContext,
@@ -22,7 +23,8 @@ export function sampleColor(
     if (!a) return null;
     return { rgb: { r: r / 255, g: g / 255, b: b / 255 }, a: a / 255 };
   }
-  const px = ctx.session.compositor.compositeToRGBA({ x: ix, y: iy, w: 1, h: 1 });
+  // what is visible: the current animation frame without onion skins
+  const px = ctx.session.compositor.compositeToRGBA({ x: ix, y: iy, w: 1, h: 1 }, frameOptions(ctx.session));
   if (!px[3]) return null;
   return { rgb: { r: px[0] / 255, g: px[1] / 255, b: px[2] / 255 }, a: px[3] / 255 };
 }

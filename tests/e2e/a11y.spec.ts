@@ -8,7 +8,9 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
-type HookWindow = Window & { __cforge: { useUi: { getState: () => { tool: string } } } };
+type HookWindow = Window & {
+  __cforge: { useUi: { getState: () => { tool: string } }; runCommand: (id: string) => void };
+};
 
 let app: ElectronApplication;
 let win: Page;
@@ -87,6 +89,19 @@ test('main UI states have no axe violations (dark and light, compact and roomy)'
   expect(await violations()).toEqual([]);
   await win.keyboard.press('Escape');
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
+  // animation panel with two frames, the export dialog and the time-lapse dialog
+  await win.evaluate(() => (window as unknown as HookWindow).__cforge.runCommand('anim.toggle'));
+  await win.keyboard.press('Control+Alt+n');
+  await win.waitForSelector('[data-testid=frame-card]');
+  expect(await violations()).toEqual([]);
+  await win.evaluate(() => (window as unknown as HookWindow).__cforge.runCommand('anim.export'));
+  await win.waitForSelector('[data-testid=animation-export-dialog]');
+  expect(await violations()).toEqual([]);
+  await win.keyboard.press('Escape');
+  await win.evaluate(() => (window as unknown as HookWindow).__cforge.runCommand('timelapse.view'));
+  await win.waitForSelector('[data-testid=timelapse-dialog]');
+  expect(await violations()).toEqual([]);
+  await win.keyboard.press('Escape');
   await win.evaluate(() => {
     document.documentElement.dataset.theme = 'light';
   });

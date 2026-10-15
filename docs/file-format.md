@@ -14,6 +14,7 @@ preview.png              composite preview, longest side ≤ 1024 px (optional)
 thumbnail.png            composite thumbnail, longest side ≤ 256 px (optional)
 resources/brushes.json   brush presets used in the document (optional)
 resources/references/<id>.png|jpg|webp   reference images, stored unchanged (optional)
+resources/timelapse/NNNNNN.webp          time-lapse snapshots in recording order (optional)
 resources/<name>         additional resources (e.g. time-lapse frames) (optional)
 ```
 
@@ -52,6 +53,10 @@ resources/<name>         additional resources (e.g. time-lapse frames) (optional
 | `features` | object | assists (symmetry, ruler, ellipse, perspective, grid), reference images, animation, time-lapse settings |
 
 `features.references` lists the reference images shown in the Reference panel: `[{ "id": "ref…", "name": "photo.jpg", "file": "references/ref….jpg", "width": 1200, "height": 800 }]`. Entries whose resource file is missing are ignored. Reference images are never composited into the artwork or exports.
+
+`features.animation` (flipbook): `{ "enabled": true, "fps": 12, "loop": true, "holdBackground": false, "holdForeground": false, "onion": { "enabled": true, "before": 1, "after": 1, "opacity": 0.4, "tint": true }, "exposures": { "<top-level layer id>": 2 } }`. Frames are the top-level nodes of `layers` (bottom → top), minus the held background/foreground. Missing or invalid values fall back to defaults; `fps` is 1–60, exposures 1–48.
+
+`features.timelapse`: `{ "recording": true, "interval": 1200 }` (minimum milliseconds between snapshots; it doubles when old snapshots are thinned out).
 
 Raster layer:
 
