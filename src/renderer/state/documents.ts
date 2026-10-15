@@ -6,6 +6,8 @@ import { History } from '../engine/history';
 import { uid } from '../engine/random';
 import { defaultView, type ViewState } from '../engine/view';
 import type { Point } from '../engine/geometry';
+import type { BrushPreset } from '../engine/brush/schema';
+import type { PaletteRef } from '../engine/io/cforge';
 
 export type SymmetryMode = 'off' | 'vertical' | 'horizontal' | 'both' | 'radial' | 'kaleido';
 
@@ -57,7 +59,14 @@ export class DocumentSession {
   /** Opaque per-document feature data saved in document.json (animation, time-lapse settings…). */
   features: Record<string, unknown> = {};
   resources: Record<string, Uint8Array> = {};
+  /** Brushes painted with or stored in the document; saved to resources/brushes.json. */
   usedBrushIds = new Set<string>();
+  /** Brush presets as stored in the opened document, used when the library no longer has them. */
+  storedBrushes = new Map<string, BrushPreset>();
+  /** Id of the palette the document refers to; null follows the active palette. */
+  paletteId: string | null = null;
+  /** Palette as stored in the opened document, used when the library no longer has it. */
+  storedPalette: PaletteRef | null = null;
 
   constructor(
     public doc: RasterDocument,

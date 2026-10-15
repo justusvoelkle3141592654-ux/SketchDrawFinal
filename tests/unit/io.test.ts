@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { unzipSync, zipSync, strToU8 } from 'fflate';
+import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { decodePng, encodePng } from '../../src/renderer/engine/io/png';
 import { deserializeDocument, serializeDocumentSync, CforgeError } from '../../src/renderer/engine/io/cforge';
 import { RasterDocument } from '../../src/renderer/engine/document';
@@ -129,6 +129,50 @@ describe('.cforge format', () => {
     expect(() => deserializeDocument(truncated)).toThrow(CforgeError);
     expect(validateCforgeBytes(truncated).ok).toBe(false);
     expect(() => deserializeDocument(strToU8('hello'))).toThrow(CforgeError);
+  });
+
+  it('round-trips the palette reference and resources', () => {
+    const palette = { id: 'P1abc', name: 'Studio', colors: ['#112233', '#ABCDEF'] };
+    const resources = {
+      'references/r1.png': new Uint8Array([1, 2, 3]),
+      'timelapse/000001.webp': new Uint8Array([4, 5]),
+    };
+    const bytes = serializeDocumentSync(makeDoc(), {
+      appVersion: 'test',
+      skipPreviews: true,
+      brushes: [FACTORY_BRUSHES[1]],
+      palette,
+      resources,
+    });
+    const back = deserializeDocument(bytes);
+    expect(back.warnings).toEqual([]);
+    expect(back.palette).toEqual(palette);
+    expect(back.resources).toEqual(resources);
+    expect(back.brushes.map((b) => b.id)).toEqual([FACTORY_BRUSHES[1].id]);
+  });
+
+  it('opens files without palette data and sanitises stored palettes', () => {
+    const files = unzipSync(serializeDocumentSync(makeDoc(), { appVersion: 'test', skipPreviews: true }));
+    const json = JSON.parse(strFromU8(files['document.json'])) as Record<string, unknown>;
+    // written before palette references existed
+    delete json.palette;
+    files['document.json'] = strToU8(JSON.stringify(json));
+    const old = deserializeDocument(zipSync(files));
+    expect([old.palette, old.brushes, old.warnings]).toEqual([null, [], []]);
+
+    json.palette = { id: 'P2', name: 'Mixed', colors: ['#abc', 'nope', 7, '#10203040'] };
+    files['document.json'] = strToU8(JSON.stringify(json));
+    expect(deserializeDocument(zipSync(files)).palette).toEqual({
+      id: 'P2',
+      name: 'Mixed',
+      colors: ['#AABBCC', '#102030'],
+    });
+
+    json.palette = { name: 'No id', colors: [] };
+    files['document.json'] = strToU8(JSON.stringify(json));
+    const bad = deserializeDocument(zipSync(files));
+    expect(bad.palette).toBeNull();
+    expect(bad.warnings).toEqual(['The palette stored in the document could not be read.']);
   });
 
   it('loads documents with missing tile data, reporting a warning', () => {

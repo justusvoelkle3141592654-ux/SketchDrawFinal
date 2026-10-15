@@ -104,6 +104,8 @@ interface ColorState {
   recent: string[];
   palettes: Palette[];
   activePaletteId: string;
+  /** False until palettes.json has been read; nothing is written before that. */
+  loaded: boolean;
   setFg: (c: RGB, commitRecent?: boolean) => void;
   setBg: (c: RGB) => void;
   setFgAlpha: (a: number) => void;
@@ -114,11 +116,14 @@ interface ColorState {
   addPalette: (p: Omit<Palette, 'id'>) => string;
   updatePalette: (id: string, fn: (p: Palette) => void) => void;
   deletePalette: (id: string) => void;
+  /** Adds a palette stored with a document unless one with its id exists; the active palette is kept. */
+  ensurePalette: (p: { id: string; name: string; colors: string[] }) => boolean;
   load: () => Promise<void>;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 function persist() {
+  if (!useColors.getState().loaded) return;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const s = useColors.getState();
@@ -148,6 +153,7 @@ export const useColors = create<ColorState>((set, get) => ({
   recent: [],
   palettes: BUILTIN_PALETTES,
   activePaletteId: BUILTIN_PALETTES[0].id,
+  loaded: false,
   setFg: (c, commitRecent = false) => {
     set({ fg: c });
     if (commitRecent) get().pushRecent(c);
@@ -205,9 +211,20 @@ export const useColors = create<ColorState>((set, get) => ({
     });
     persist();
   },
+  ensurePalette: (p) => {
+    if (get().palettes.some((x) => x.id === p.id)) return false;
+    set({ palettes: [...get().palettes, { id: p.id, name: p.name, colors: [...p.colors], builtIn: false }] });
+    persist();
+    return true;
+  },
   load: async () => {
     const raw = (await forge.loadAppData('palettes').catch(() => null)) as Record<string, unknown> | null;
-    if (!raw || typeof raw !== 'object') return;
+    if (!raw || typeof raw !== 'object') {
+      set({ loaded: true });
+      // palettes from documents opened before loading finished
+      if (get().palettes.some((p) => !p.builtIn)) persist();
+      return;
+    }
     const fg = typeof raw.fg === 'string' ? parseHex(raw.fg) : null;
     const bg = typeof raw.bg === 'string' ? parseHex(raw.bg) : null;
     const userPalettes: Palette[] = Array.isArray(raw.palettes)
@@ -220,7 +237,17 @@ export const useColors = create<ColorState>((set, get) => ({
           }))
           .slice(0, 100)
       : [];
-    const palettes = [...BUILTIN_PALETTES, ...userPalettes];
+    const ids = new Set(BUILTIN_PALETTES.map((p) => p.id));
+    const palettes = [...BUILTIN_PALETTES];
+    // ids are unique; a user palette never shadows a built-in one
+    for (const p of userPalettes) {
+      if (ids.has(p.id)) continue;
+      ids.add(p.id);
+      palettes.push(p);
+    }
+    // palettes from documents opened before loading finished
+    const early = get().palettes.filter((p) => !p.builtIn && !ids.has(p.id));
+    palettes.push(...early);
     set({
       fg: fg ? { r: fg.r, g: fg.g, b: fg.b } : get().fg,
       bg: bg ? { r: bg.r, g: bg.g, b: bg.b } : get().bg,
@@ -229,7 +256,9 @@ export const useColors = create<ColorState>((set, get) => ({
       activePaletteId: palettes.some((p) => p.id === raw.activePaletteId)
         ? (raw.activePaletteId as string)
         : palettes[0].id,
+      loaded: true,
     });
+    if (early.length) persist();
   },
 }));
 

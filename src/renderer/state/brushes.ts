@@ -27,6 +27,8 @@ interface BrushState {
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 function persist() {
+  // never write before brushes.json was read
+  if (!useBrushes.getState().loaded) return;
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => {
     const s = useBrushes.getState();
@@ -52,6 +54,8 @@ export const useBrushes = create<BrushState>((set, get) => ({
     const raw = (await forge.loadAppData('brushes').catch(() => null)) as Record<string, unknown> | null;
     if (!raw || !Array.isArray(raw.brushes)) {
       set({ loaded: true });
+      // brushes from documents opened before loading finished
+      if (get().brushes.some((b) => !b.factory)) persist();
       return;
     }
     const brushes: BrushPreset[] = [];
@@ -68,6 +72,9 @@ export const useBrushes = create<BrushState>((set, get) => ({
     }
     // factory presets added in newer versions
     for (const f of FACTORY_BRUSHES) if (!seen.has(f.id)) brushes.push(cloneBrush(f));
+    // brushes from documents opened before loading finished
+    const early = get().brushes.filter((b) => !b.factory && !seen.has(b.id));
+    brushes.push(...early);
     const ids = new Set(brushes.map((b) => b.id));
     const pick = (v: unknown, d: string) => (typeof v === 'string' && ids.has(v) ? v : d);
     set({
@@ -79,6 +86,7 @@ export const useBrushes = create<BrushState>((set, get) => ({
       activeEraserId: pick(raw.activeEraserId, DEFAULT_ERASER_ID),
       loaded: true,
     });
+    if (early.length) persist();
   },
   get: (id) => get().brushes.find((b) => b.id === id),
   update: (id, fn) => {

@@ -12,10 +12,19 @@ import { encodePng } from './png';
 import type { ViewState } from '../view';
 import { validateBrush, type BrushPreset } from '../brush/schema';
 
+/** A palette referenced by the document, stored with its colours so it can be restored anywhere. */
+export interface PaletteRef {
+  id: string;
+  name: string;
+  colors: string[]; // #RRGGBB
+}
+
 export interface DocumentExtras {
   view?: ViewState;
   /** Brush presets referenced by the document (for reproducibility). */
   brushes?: BrushPreset[];
+  /** The palette in use with the document. */
+  palette?: PaletteRef | null;
   /** Opaque JSON for features stored with the document (animation, guides, time-lapse metadata). */
   features?: Record<string, unknown>;
   /** Additional binary resources (e.g. time-lapse frames). */
@@ -62,6 +71,8 @@ interface DocumentJson {
   selection: { tiles: [number, number][] } | null;
   view: ViewState | null;
   features: Record<string, unknown>;
+  /** Absent in files written before palette references were stored. */
+  palette?: PaletteRef | null;
 }
 
 const tileName = (tx: number, ty: number) => `${tx}_${ty}`;
@@ -283,6 +294,7 @@ export function buildCforgeFiles(doc: RasterDocument, opts: SerializeOptions): Z
     selection: doc.selection ? { tiles: selectionTiles } : null,
     view: opts.view ?? null,
     features: opts.features ?? {},
+    palette: opts.palette ?? null,
   };
   const now = new Date().toISOString();
   files['manifest.json'] = strToU8(
@@ -341,6 +353,7 @@ export interface LoadedDocument {
   doc: RasterDocument;
   view: ViewState | null;
   brushes: BrushPreset[];
+  palette: PaletteRef | null;
   features: Record<string, unknown>;
   resources: Record<string, Uint8Array>;
   warnings: string[];
@@ -349,6 +362,20 @@ export interface LoadedDocument {
 export class CforgeError extends Error {}
 
 const LABELS = LABEL_COLORS.map((l) => l.id);
+
+/** Validates a stored palette reference; colours are normalised to #RRGGBB, invalid ones dropped. */
+function readPaletteRef(v: unknown): PaletteRef | null {
+  if (!v || typeof v !== 'object') return null;
+  const p = v as Record<string, unknown>;
+  if (typeof p.id !== 'string' || !p.id || p.id.length > 64) return null;
+  const colors: string[] = [];
+  for (const c of Array.isArray(p.colors) ? p.colors : []) {
+    const rgb = typeof c === 'string' ? parseHex(c) : null;
+    if (rgb) colors.push(rgbToHex(rgb));
+    if (colors.length >= 512) break;
+  }
+  return { id: p.id, name: typeof p.name === 'string' ? p.name.slice(0, 80) : 'Palette', colors };
+}
 
 export function deserializeDocument(bytes: Uint8Array): LoadedDocument {
   let entries: Record<string, Uint8Array>;
@@ -520,6 +547,8 @@ export function deserializeDocument(bytes: Uint8Array): LoadedDocument {
       warnings.push('Stored brush data could not be read.');
     }
   }
+  const palette = readPaletteRef(json.palette);
+  if (json.palette && !palette) warnings.push('The palette stored in the document could not be read.');
   const resources: Record<string, Uint8Array> = {};
   for (const [name, data] of Object.entries(entries)) {
     if (name.startsWith('resources/') && name !== 'resources/brushes.json')
@@ -529,6 +558,7 @@ export function deserializeDocument(bytes: Uint8Array): LoadedDocument {
     doc,
     view: json.view && typeof json.view === 'object' ? json.view : null,
     brushes,
+    palette,
     features: json.features && typeof json.features === 'object' ? json.features : {},
     resources,
     warnings: [...new Set(warnings)],

@@ -1,7 +1,7 @@
 // New / open / save / close / import / export, with confirmations and readable errors.
 import type { OpenedFile } from '../../shared/ipc';
 import { RasterDocument, type DocumentBackground } from '../engine/document';
-import { deserializeDocument, serializeDocument, CforgeError } from '../engine/io/cforge';
+import { deserializeDocument, serializeDocument, CforgeError, type PaletteRef } from '../engine/io/cforge';
 import { addLayerWithPixels } from '../engine/layer-ops';
 import { TileGrid } from '../engine/tiles';
 import { createRasterLayer } from '../engine/layers';
@@ -9,10 +9,10 @@ import { forge } from '../platform';
 import { activeSession, DocumentSession, useDocs } from '../state/documents';
 import { confirmDialog, toast, useUi } from '../state/ui';
 import { useBrushes } from '../state/brushes';
+import { useColors } from '../state/colors';
 import { decodeImageBytes, encodeImage, resizeRGBA } from './image-codec';
 import { usePrefs } from '../state/preferences';
 import { Compositor } from '../engine/compositor';
-import { validateBrush } from '../engine/brush/schema';
 import { frameOptions } from './animation';
 
 export const APP_VERSION = '0.1.0';
@@ -56,6 +56,53 @@ function applyFeatures(s: DocumentSession, features: Record<string, unknown>) {
   }
 }
 
+/**
+ * Builds a session from .cforge bytes, shared by open and recovery: layers, view, features
+ * (assists, guides, references, animation), resources, stored brushes and the palette reference.
+ * Throws CforgeError for unreadable files. The session is not added to the open documents.
+ */
+export function sessionFromCforge(
+  bytes: Uint8Array,
+  fileName: string,
+): { session: DocumentSession; warnings: string[] } {
+  const loaded = deserializeDocument(bytes);
+  const s = new DocumentSession(loaded.doc, fileName);
+  if (loaded.view) {
+    s.view = { ...s.view, ...loaded.view };
+    s.viewInitialized = true;
+  }
+  applyFeatures(s, loaded.features);
+  s.resources = loaded.resources;
+  // Stored brushes stay referenced, so a re-save keeps them; the library gains the ones it lacks.
+  const lib = useBrushes.getState();
+  for (const b of loaded.brushes) {
+    s.storedBrushes.set(b.id, b);
+    s.usedBrushIds.add(b.id);
+    if (!lib.get(b.id)) lib.add({ ...b, factory: false });
+  }
+  // The document's palette becomes available without replacing a palette or switching the active one.
+  if (loaded.palette) {
+    s.paletteId = loaded.palette.id;
+    s.storedPalette = loaded.palette;
+    useColors.getState().ensurePalette(loaded.palette);
+  }
+  applyHistoryBudget(s);
+  return { session: s, warnings: loaded.warnings };
+}
+
+function reportOpenWarnings(warnings: string[]) {
+  if (warnings.length) toast('warning', `Opened with ${warnings.length} warning(s).`, warnings.join('\n'));
+}
+
+/** Reopens an autosave snapshot as an unsaved document without a path, so no file is overwritten. */
+export function openRecovered(bytes: Uint8Array, title: string): DocumentSession {
+  const { session: s, warnings } = sessionFromCforge(bytes, `${title} (recovered)`);
+  s.unsavedOrigin = true;
+  useDocs.getState().add(s);
+  reportOpenWarnings(warnings);
+  return s;
+}
+
 export async function openFile(file: OpenedFile): Promise<DocumentSession | null> {
   const existing = useDocs.getState().sessions.find((x) => x.filePath && x.filePath === file.path);
   if (existing) {
@@ -65,22 +112,10 @@ export async function openFile(file: OpenedFile): Promise<DocumentSession | null
   }
   if (/\.cforge$/i.test(file.name)) {
     try {
-      const loaded = deserializeDocument(file.bytes);
-      const s = new DocumentSession(loaded.doc, file.name);
+      const { session: s, warnings } = sessionFromCforge(file.bytes, file.name);
       s.filePath = file.path;
-      if (loaded.view) {
-        s.view = { ...s.view, ...loaded.view };
-        s.viewInitialized = true;
-      }
-      applyFeatures(s, loaded.features);
-      s.resources = loaded.resources;
-      // Make brushes stored in the document available if the library lacks them.
-      const lib = useBrushes.getState();
-      for (const b of loaded.brushes) if (!lib.get(b.id)) lib.add({ ...validateBrush(b), factory: false });
-      applyHistoryBudget(s);
       useDocs.getState().add(s);
-      if (loaded.warnings.length)
-        toast('warning', `Opened with ${loaded.warnings.length} warning(s).`, loaded.warnings.join('\n'));
+      reportOpenWarnings(warnings);
       return s;
     } catch (e) {
       toast(
@@ -141,16 +176,38 @@ export function featuresFor(s: DocumentSession): Record<string, unknown> {
   return { ...s.features, assist: s.assist };
 }
 
+/** Library versions of the document's brushes, falling back to the copies stored in the file. */
 function brushesUsed(s: DocumentSession) {
   const lib = useBrushes.getState();
-  return [...s.usedBrushIds].map((id) => lib.get(id)).filter((b): b is NonNullable<typeof b> => !!b);
+  return [...s.usedBrushIds]
+    .map((id) => lib.get(id) ?? s.storedBrushes.get(id))
+    .filter((b): b is NonNullable<typeof b> => !!b);
 }
+
+/** The document's palette (current library version, else the stored copy), or the active palette. */
+export function paletteFor(s: DocumentSession): PaletteRef | null {
+  const { palettes, activePaletteId } = useColors.getState();
+  const id = s.paletteId ?? activePaletteId;
+  const p =
+    palettes.find((x) => x.id === id) ??
+    (s.storedPalette?.id === id ? s.storedPalette : undefined) ??
+    palettes.find((x) => x.id === activePaletteId);
+  return p ? { id: p.id, name: p.name, colors: [...p.colors] } : null;
+}
+
+// A palette picked while a document is active becomes that document's palette reference.
+useColors.subscribe((st, prev) => {
+  if (!prev.loaded || st.activePaletteId === prev.activePaletteId) return;
+  const s = activeSession();
+  if (s) s.paletteId = st.activePaletteId;
+});
 
 export async function serializeSession(s: DocumentSession, skipPreviews = false): Promise<Uint8Array> {
   return serializeDocument(s.doc, {
     appVersion: APP_VERSION,
     view: s.view,
     brushes: brushesUsed(s),
+    palette: paletteFor(s),
     features: featuresFor(s),
     resources: s.resources,
     skipPreviews,

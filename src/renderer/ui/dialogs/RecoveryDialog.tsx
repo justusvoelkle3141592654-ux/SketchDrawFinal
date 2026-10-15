@@ -5,9 +5,7 @@ import { Button } from '../controls/controls';
 import { useUi } from '../../state/ui';
 import { forge } from '../../platform';
 import type { RecoveryEntry } from '../../../shared/ipc';
-import { deserializeDocument } from '../../engine/io/cforge';
-import { DocumentSession, useDocs } from '../../state/documents';
-import { applyHistoryBudget } from '../../app/file-actions';
+import { openRecovered } from '../../app/file-actions';
 
 export function RecoveryDialog() {
   const close = useUi((s) => s.closeDialog);
@@ -20,17 +18,8 @@ export function RecoveryDialog() {
       return;
     }
     try {
-      const loaded = deserializeDocument(bytes);
-      const s = new DocumentSession(loaded.doc, `${e.title} (recovered)`);
-      s.filePath = null;
-      s.unsavedOrigin = true;
-      if (loaded.view) {
-        s.view = { ...s.view, ...loaded.view };
-        s.viewInitialized = true;
-      }
-      s.features = loaded.features;
-      applyHistoryBudget(s);
-      useDocs.getState().add(s);
+      // same path as opening a file: layers, features, resources, stored brushes and palette
+      openRecovered(bytes, e.title);
       await forge.recoveryDelete(e.id);
       setEntries((list) => list.filter((x) => x.id !== e.id));
       useUi.getState().toast('success', `Recovered "${e.title}". Save it to keep it.`);
