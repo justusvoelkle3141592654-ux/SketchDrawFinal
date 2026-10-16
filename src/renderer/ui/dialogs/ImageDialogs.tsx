@@ -8,7 +8,13 @@ import { estimateDocumentMemory, MAX_DOCUMENT_SIDE } from '../../engine/document
 import { resizeCanvas, resizeImage, type Adjustment } from '../../engine/pixel-ops';
 import { docOp } from '../../app/extended';
 import { allRasterLayers } from '../../engine/layers';
-import { ADJUST_LABELS, AdjustmentPreview, adjustTarget } from '../../app/adjust-actions';
+import {
+  ADJUST_LABELS,
+  AdjustmentPreview,
+  adjustTarget,
+  adjustedPixels,
+  undoNote,
+} from '../../app/adjust-actions';
 
 const fmtBytes = (b: number) =>
   b > 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(2)} GB` : `${Math.round(b / 1024 ** 2)} MB`;
@@ -293,8 +299,9 @@ export function AdjustDialog() {
       }
     >
       <div className="form-grid adjust-form">
-        <p className="form-note">
-          Changes the pixels of “{target.layer.name}”{target.s.doc.selection ? ' inside the selection' : ''}.
+        <p className="form-warning" data-testid="adjust-destructive-note">
+          <strong>Destructive:</strong> changes the pixels of {adjustedPixels(target.s, target.layer)}.{' '}
+          {undoNote()}
         </p>
         {kind === 'brightness-contrast' ? (
           <>

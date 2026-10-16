@@ -74,6 +74,11 @@ test('main UI states have no axe violations (dark and light, compact and roomy)'
   await win.waitForTimeout(300);
   expect(await violations()).toEqual([]);
   await win.keyboard.press('Escape');
+  // adjustment dialog with its destructive note
+  await win.keyboard.press('Control+Alt+b');
+  await win.waitForSelector('[data-testid=adjust-destructive-note]');
+  expect(await violations()).toEqual([]);
+  await win.keyboard.press('Escape');
   // tool flyout (right-click) and the command-bar overflow menu
   await win.click('[data-testid=rail-group-select]', { button: 'right' });
   await win.waitForSelector('[data-testid=flyout-select]');
@@ -82,12 +87,40 @@ test('main UI states have no axe violations (dark and light, compact and roomy)'
   expect(await win.evaluate(() => (window as unknown as HookWindow).__cforge.useUi.getState().tool)).toBe(
     'select-wand',
   );
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1024, 700));
+  // minimum window size: fits 1366 × 768 at 125 % (about 1093 × 566 DIP work area)
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1024, 540));
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getSize())).toEqual([
+    1024, 540,
+  ]);
   await expect(win.locator('[data-testid=cmd-more]')).toBeVisible();
+  // every rail tool and the colour swatches fit without scrolling; dock, canvas and status bar stay usable
+  const fit = await win.evaluate(() => {
+    const rail = document.querySelector('.tool-rail')!;
+    const h = (s: string) => document.querySelector(s)!.getBoundingClientRect().height;
+    return { railFits: rail.scrollHeight <= rail.clientHeight, dock: h('.dock'), canvas: h('.canvas-area') };
+  });
+  expect(fit.railFits).toBe(true);
+  expect(fit.dock).toBeGreaterThan(400);
+  expect(fit.canvas).toBeGreaterThan(400);
+  await expect(win.locator('[data-testid=rail-fg]')).toBeInViewport({ ratio: 1 });
+  await expect(win.locator('[data-testid=rail-group-nav]')).toBeInViewport({ ratio: 1 });
+  await expect(win.locator('[data-testid=save-status]')).toBeInViewport({ ratio: 1 });
   await win.click('[data-testid=cmd-more]');
   await win.waitForSelector('.more-menu');
   expect(await violations()).toEqual([]);
   await win.keyboard.press('Escape');
+  // roomy tools do not fit that height: the rail scrolls and shows its scrollbar
+  await win.evaluate(() => (document.documentElement.dataset.density = 'roomy'));
+  const rail = await win.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('.tool-rail')!;
+    return { overflows: r.scrollHeight > r.clientHeight, scrollbar: r.offsetWidth - r.clientWidth - 1 };
+  });
+  expect(rail.overflows).toBe(true);
+  expect(rail.scrollbar).toBeGreaterThan(0);
+  await win.locator('[data-testid=rail-fg]').scrollIntoViewIfNeeded();
+  await expect(win.locator('[data-testid=rail-fg]')).toBeInViewport({ ratio: 1 });
+  expect(await violations()).toEqual([]);
+  await win.evaluate(() => (document.documentElement.dataset.density = 'compact'));
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
   // animation panel with two frames, the export dialog and the time-lapse dialog
   await win.evaluate(() => (window as unknown as HookWindow).__cforge.runCommand('anim.toggle'));

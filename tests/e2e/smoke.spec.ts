@@ -155,7 +155,7 @@ type HookWindow = Window & {
         selection: unknown;
         layers: { name: string; pixels: { getPixel: (x: number, y: number) => number[] } }[];
       };
-      view: { zoom: number };
+      view: { zoom: number; flipX: boolean; flipY: boolean };
     };
   };
 };
@@ -219,4 +219,50 @@ test('text tool places raster text on a new layer', async () => {
     return n;
   });
   expect(opaque).toBeGreaterThan(50);
+});
+
+test('mirror view (H, Shift+H) changes the view only; adjustments are labelled destructive', async () => {
+  await win.keyboard.press('Control+n');
+  await win.click('[data-testid=new-doc-create]');
+  const flips = () =>
+    win.evaluate(() => {
+      const v = (window as unknown as HookWindow).__cforge.activeSession().view;
+      return { x: v.flipX, y: v.flipY };
+    });
+  await win.keyboard.press('b');
+  await win.keyboard.press('Shift+H');
+  expect(await flips()).toEqual({ x: false, y: true });
+  await expect(win.locator('.statusbar')).toContainText('mirrored V');
+  // mirrored vertically, a stroke below the screen centre lands above the document centre
+  await strokeAcrossCanvas(60);
+  const zoom = await win.evaluate(() => (window as unknown as HookWindow).__cforge.activeSession().view.zoom);
+  const dy = Math.round(60 / zoom);
+  expect(await centreAlpha(0, -dy)).toBeGreaterThan(200);
+  expect(await centreAlpha(0, dy)).toBe(0);
+  await win.keyboard.press('h');
+  expect(await flips()).toEqual({ x: true, y: true });
+  await expect(win.locator('.statusbar')).toContainText('mirrored H+V');
+  await win.keyboard.press('Shift+H');
+  await win.keyboard.press('h');
+  expect(await flips()).toEqual({ x: false, y: false });
+  // the pixels never moved
+  expect(await centreAlpha(0, -dy)).toBeGreaterThan(200);
+  expect(await centreAlpha(0, dy)).toBe(0);
+
+  await win.keyboard.press('Control+Alt+b');
+  const note = win.locator('[data-testid=adjust-destructive-note]');
+  await expect(note).toContainText('Destructive: changes the pixels of “Layer 1”.');
+  await expect(note).toContainText('Undo (Ctrl+Z) reverts it.');
+  await win.keyboard.press('Escape');
+  await expect(note).toHaveCount(0);
+  await win.keyboard.press('Control+i');
+  await expect(win.locator('.toast-text').last()).toHaveText(
+    'Invert colours changed the pixels of “Layer 1”.',
+  );
+  await win.keyboard.press('Control+k');
+  await win.fill('[data-testid=palette-input]', 'greyscale');
+  await expect(win.locator('[data-testid="palette-item-adjust.grayscale"]')).toContainText(
+    'Greyscale (destructive)',
+  );
+  await win.keyboard.press('Escape');
 });

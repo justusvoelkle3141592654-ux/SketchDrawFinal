@@ -11,6 +11,9 @@ if (process.env.CFORGE_USER_DATA_DIR) {
 }
 
 const devServerUrl = process.env.CFORGE_DEV_SERVER_URL;
+// Fits the work area of 1366 × 768 at 125 % scaling (about 1093 × 566 DIP with the taskbar).
+const MIN_WIDTH = 1024;
+const MIN_HEIGHT = 540;
 let mainWindow: BrowserWindow | null = null;
 let allowClose = false;
 const pendingOpenPaths: string[] = [];
@@ -31,17 +34,17 @@ async function sendOpenPath(path: string) {
   mainWindow.webContents.send(IPC.evtOpenPath, result);
 }
 
-function clampToDisplay(state: WindowState | null): WindowState {
-  const fallback: WindowState = { width: 1440, height: 900, maximized: false };
-  if (!state) return fallback;
+function clampToDisplay(saved: WindowState | null): WindowState {
+  // the first-launch size is clamped too, so it never exceeds a small work area
+  const state: WindowState = saved ?? { width: 1440, height: 900, maximized: false };
   const area = screen.getDisplayMatching({
     x: state.x ?? 0,
     y: state.y ?? 0,
     width: state.width,
     height: state.height,
   }).workArea;
-  const width = Math.min(Math.max(state.width, 1024), area.width);
-  const height = Math.min(Math.max(state.height, 640), area.height);
+  const width = Math.min(Math.max(state.width, MIN_WIDTH), area.width);
+  const height = Math.min(Math.max(state.height, MIN_HEIGHT), area.height);
   const visible =
     state.x !== undefined &&
     state.y !== undefined &&
@@ -62,8 +65,8 @@ async function createWindow() {
     y: state.y,
     width: state.width,
     height: state.height,
-    minWidth: 1024,
-    minHeight: 640,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
     show: false,
     backgroundColor: '#15171a',
     title: 'Canvas Forge',

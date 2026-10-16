@@ -126,6 +126,7 @@ const GROUPS: { label: string; ids: string[]; priority: number }[] = [
       'view.rotateRight',
       'view.resetRotation',
       'view.mirror',
+      'view.mirrorVertical',
     ],
     priority: 60,
   },
@@ -553,6 +554,7 @@ export function StatusBar() {
     );
   }
   const deg = Math.round((s.view.rotation * 180) / Math.PI);
+  const mirror = [s.view.flipX ? 'H' : '', s.view.flipY ? 'V' : ''].filter(Boolean).join('+');
   const animation = animationOf(s);
   const recording = timelapseSettings(s).recording;
   return (
@@ -587,8 +589,8 @@ export function StatusBar() {
         />
         %
       </span>
-      <span className="status-item" data-tip="View rotation">
-        <Icon name="rotate" size={13} /> {deg}°{s.view.flipX ? ' · mirrored' : ''}
+      <span className="status-item" data-tip="View rotation and mirror (H horizontal, V vertical)">
+        <Icon name="rotate" size={13} /> {deg}°{mirror ? ` · mirrored ${mirror}` : ''}
       </span>
       <span className="status-item" data-tip="Document size">
         {s.doc.width} × {s.doc.height} px · {s.doc.dpi} dpi

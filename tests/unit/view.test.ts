@@ -5,6 +5,7 @@ import {
   zoomAt,
   rotateAt,
   fitView,
+  mirrorView,
   nextZoomStep,
   MAX_ZOOM,
   MIN_ZOOM,
@@ -78,6 +79,96 @@ describe('view transform', () => {
     expect(nextZoomStep(1, 1)).toBe(1.5);
     expect(nextZoomStep(1, -1)).toBe(0.75);
     expect(nextZoomStep(64, 1)).toBe(64);
+  });
+});
+
+describe('mirror view', () => {
+  const W = 2000;
+  const H = 1500;
+  const pts = [
+    { x: 0, y: 0 },
+    { x: 1999.5, y: 3.25 },
+    { x: -40, y: 870 },
+    { x: 700, y: 1400 },
+  ];
+  const views: ViewState[] = [
+    { zoom: 1, rotation: 0, panX: 0, panY: 0, flipX: false, flipY: false },
+    { zoom: 2.5, rotation: 0.7, panX: 33, panY: -12, flipX: false, flipY: false },
+    { zoom: 0.3, rotation: -2.1, panX: -400, panY: 200, flipX: true, flipY: false },
+    { zoom: 4, rotation: Math.PI / 2, panX: 5, panY: 5, flipX: false, flipY: true },
+    { zoom: 1.5, rotation: Math.PI, panX: 0, panY: 90, flipX: true, flipY: true },
+  ];
+
+  it('vertical mirror flips the screen image top to bottom about the document centre', () => {
+    for (const v of views) {
+      const m = mirrorView(v, 'y');
+      expect(m.flipY).toBe(!v.flipY);
+      expect(m.flipX).toBe(v.flipX);
+      const cy = vp.height / 2 + v.panY;
+      for (const p of pts) {
+        const a = docToScreen(v, vp, W, H, p);
+        const b = docToScreen(m, vp, W, H, p);
+        expect(b.x).toBeCloseTo(a.x, 6);
+        expect(b.y).toBeCloseTo(2 * cy - a.y, 6);
+      }
+    }
+  });
+
+  it('horizontal mirror flips the screen image left to right, also when the view is rotated', () => {
+    for (const v of views) {
+      const m = mirrorView(v, 'x');
+      expect(m.flipX).toBe(!v.flipX);
+      expect(m.flipY).toBe(v.flipY);
+      const cx = vp.width / 2 + v.panX;
+      for (const p of pts) {
+        const a = docToScreen(v, vp, W, H, p);
+        const b = docToScreen(m, vp, W, H, p);
+        expect(b.x).toBeCloseTo(2 * cx - a.x, 6);
+        expect(b.y).toBeCloseTo(a.y, 6);
+      }
+    }
+  });
+
+  it('both mirrors together turn the image 180° and repeating a mirror restores the view', () => {
+    for (const v of views) {
+      const both = mirrorView(mirrorView(v, 'x'), 'y');
+      const c = { x: vp.width / 2 + v.panX, y: vp.height / 2 + v.panY };
+      for (const p of pts) {
+        const a = docToScreen(v, vp, W, H, p);
+        const b = docToScreen(both, vp, W, H, p);
+        expect(b.x).toBeCloseTo(2 * c.x - a.x, 6);
+        expect(b.y).toBeCloseTo(2 * c.y - a.y, 6);
+        const back = screenToDoc(both, vp, W, H, b);
+        expect(back.x).toBeCloseTo(p.x, 6);
+        expect(back.y).toBeCloseTo(p.y, 6);
+      }
+      for (const axis of ['x', 'y'] as const) {
+        const twice = mirrorView(mirrorView(v, axis), axis);
+        expect(twice.flipX).toBe(v.flipX);
+        expect(twice.flipY).toBe(v.flipY);
+        expect(Math.cos(twice.rotation)).toBeCloseTo(Math.cos(v.rotation), 9);
+        expect(Math.sin(twice.rotation)).toBeCloseTo(Math.sin(v.rotation), 9);
+        expect({ zoom: twice.zoom, panX: twice.panX, panY: twice.panY }).toEqual({
+          zoom: v.zoom,
+          panX: v.panX,
+          panY: v.panY,
+        });
+      }
+    }
+  });
+
+  it('rotating a mirrored view still turns the screen image clockwise', () => {
+    const m = mirrorView(views[1], 'y');
+    const anchor = { x: vp.width / 2, y: vp.height / 2 };
+    const r = rotateAt(m, vp, W, H, m.rotation + Math.PI / 2, anchor);
+    for (const p of pts) {
+      const a = docToScreen(m, vp, W, H, p);
+      const b = docToScreen(r, vp, W, H, p);
+      // 90° clockwise on screen (y down) around the anchor: (dx, dy) → (-dy, dx)
+      const da = { x: a.x - anchor.x, y: a.y - anchor.y };
+      expect(b.x - anchor.x).toBeCloseTo(-da.y, 6);
+      expect(b.y - anchor.y).toBeCloseTo(da.x, 6);
+    }
   });
 });
 

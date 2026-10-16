@@ -91,6 +91,20 @@ export function rotateAt(
   return { ...next, panX: next.panX + (anchor.x - moved.x), panY: next.panY + (anchor.y - moved.y) };
 }
 
+/**
+ * Mirrors the view on screen (view only, pixels are untouched): 'x' flips left↔right, 'y' flips
+ * top↔bottom, about the document centre. A screen flip of a rotated view equals the opposite
+ * rotation applied to the flipped document, so the rotation changes sign; repeating restores the view.
+ */
+export function mirrorView(view: ViewState, axis: 'x' | 'y'): ViewState {
+  return {
+    ...view,
+    rotation: normalizeAngle(-view.rotation),
+    flipX: axis === 'x' ? !view.flipX : view.flipX,
+    flipY: axis === 'y' ? !view.flipY : view.flipY,
+  };
+}
+
 export function normalizeAngle(a: number): number {
   const t = Math.PI * 2;
   let r = a % t;

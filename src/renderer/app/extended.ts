@@ -356,11 +356,12 @@ export function registerExtendedFeatures() {
     },
     enabled: hasDoc,
   });
+  // the labels say "destructive" wherever the commands appear (palette, shortcut settings, Orbit)
   for (const [id, label, kind, keys] of [
-    ['adjust.brightness', 'Brightness / contrast…', 'brightness-contrast', ['Ctrl+Alt+B']],
-    ['adjust.hue', 'Hue / saturation…', 'hue-saturation', ['Ctrl+U']],
-    ['adjust.grayscale', 'Greyscale', 'grayscale', ['Ctrl+Shift+U']],
-    ['adjust.invert', 'Invert colours', 'invert', ['Ctrl+I']],
+    ['adjust.brightness', 'Brightness / contrast (destructive)…', 'brightness-contrast', ['Ctrl+Alt+B']],
+    ['adjust.hue', 'Hue / saturation (destructive)…', 'hue-saturation', ['Ctrl+U']],
+    ['adjust.grayscale', 'Greyscale (destructive)', 'grayscale', ['Ctrl+Shift+U']],
+    ['adjust.invert', 'Invert colours (destructive)', 'invert', ['Ctrl+I']],
   ] as const) {
     register({
       id,
@@ -368,7 +369,7 @@ export function registerExtendedFeatures() {
       group: 'Adjust',
       icon: 'adjust',
       keys: [...keys],
-      hint: 'Destructive: changes the pixels of the active layer (inside the selection). Undo is available.',
+      hint: 'Changes the pixels of the active layer (inside the selection). Undo reverts it.',
       run: () => {
         if (kind === 'grayscale' || kind === 'invert') applyAdjustmentNow({ kind });
         else if (adjustTarget()) useUi.getState().openDialog('adjust', { kind });

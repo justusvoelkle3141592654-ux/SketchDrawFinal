@@ -5,6 +5,7 @@ import type { RasterLayer } from '../engine/layers';
 import { activeSession, type DocumentSession } from '../state/documents';
 import { toast } from '../state/ui';
 import { requestRedraw } from './actions';
+import { shortcutsFor } from './commands';
 
 export const ADJUST_LABELS: Record<Adjustment['kind'], string> = {
   'brightness-contrast': 'Brightness / contrast',
@@ -38,13 +39,29 @@ function run(s: DocumentSession, layer: RasterLayer, adj: Adjustment): HistoryEn
   return e;
 }
 
-/** Applies an adjustment immediately and records it in the history. */
+/** “Layer” plus “inside the selection” when one is active: what an adjustment rewrites. */
+export function adjustedPixels(s: DocumentSession, layer: RasterLayer): string {
+  return `“${layer.name}”${s.doc.selection ? ' inside the selection' : ''}`;
+}
+
+/** How to revert a destructive adjustment, with the current Undo shortcut. */
+export function undoNote(): string {
+  const k = shortcutsFor('edit.undo')[0];
+  return k ? `Undo (${k}) reverts it.` : 'Undo reverts it.';
+}
+
+/** Applies an adjustment immediately, records it in the history and says that pixels changed. */
 export function applyAdjustmentNow(adj: Adjustment): void {
   const t = adjustTarget();
   if (!t) return;
   const e = run(t.s, t.layer, adj);
-  if (e) t.s.history.push(e);
-  else toast('info', 'The layer has no pixels to adjust here.');
+  if (!e) return toast('info', 'The layer has no pixels to adjust here.');
+  t.s.history.push(e);
+  toast(
+    'info',
+    `${ADJUST_LABELS[adj.kind]} changed the pixels of ${adjustedPixels(t.s, t.layer)}.`,
+    undoNote(),
+  );
 }
 
 /**

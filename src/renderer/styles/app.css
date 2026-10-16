@@ -269,9 +269,9 @@ textarea {
   background: var(--surface-1);
   border-right: 1px solid var(--line);
   padding: 8px 0;
+  /* the app's thin scrollbar shows only when the tools do not fit (short window, roomy density) */
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: none;
 }
 .is-left-handed .tool-rail {
   border-right: none;
@@ -2158,6 +2158,22 @@ kbd.is-capturing {
 @media (max-width: 1100px) {
   .titlebar-name {
     display: none;
+  }
+}
+/* short windows (down to the 540 px minimum, e.g. 1366 × 768 at 125 %): tighter rail so all tools fit */
+@media (max-height: 600px) {
+  .tool-rail {
+    padding: 4px 0;
+  }
+  .rail-tools {
+    gap: 0;
+  }
+  .rail-group {
+    padding: 1px 0;
+  }
+  /* keeps its size: the overlapping swatches must stay large enough to hit */
+  .rail-colors {
+    margin: 4px auto 0;
   }
 }
 

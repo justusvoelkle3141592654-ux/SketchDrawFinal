@@ -1,7 +1,7 @@
 // Document-level actions shared by commands, panels and Orbit.
 import type { HistoryEntry } from '../engine/history';
 import * as ops from '../engine/layer-ops';
-import { fitView, nextZoomStep, rotateAt, zoomAt, type Viewport } from '../engine/view';
+import { fitView, mirrorView, nextZoomStep, rotateAt, zoomAt, type Viewport } from '../engine/view';
 import { activeSession, useDocs, type DocumentSession } from '../state/documents';
 import { confirmDialog, toast, useUi } from '../state/ui';
 import { usePrefs } from '../state/preferences';
@@ -96,8 +96,9 @@ export function rotateBy(deg: number) {
   });
 }
 
-export function toggleMirror() {
-  withSession((s) => setView(s, { ...s.view, flipX: !s.view.flipX }));
+/** Mirrors the view horizontally ('x') or vertically ('y') as seen on screen; pixels are unchanged. */
+export function toggleMirror(axis: 'x' | 'y' = 'x') {
+  withSession((s) => setView(s, mirrorView(s.view, axis)));
 }
 
 export function resetView() {
