@@ -1,5 +1,5 @@
 // Input routing on the real canvas with synthetic pen and touch Pointer Events: pen-only mode,
-// palm contacts during a pen stroke, and the Input & Tablet diagnostics.
+// palm contacts before and during a pen stroke, and the Input & Tablet diagnostics.
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -155,4 +155,75 @@ test('pen-only canvas: the pen paints, palm contacts do not move the view, a fin
   expect(panned.view.zoom).toBe(drawn.view.zoom);
   expect(panned.history).toBe(drawn.history);
   expect(panned.tiles).toBe(drawn.tiles);
+});
+
+test('pen-only canvas: palms that land before the pen do not block it, move the view or undo', async () => {
+  const newDoc = async () => {
+    await win.keyboard.press('Control+n');
+    await win.selectOption('[data-testid=new-doc-preset]', 'square');
+    await win.click('[data-testid=new-doc-create]');
+    await expect(win.locator('[data-testid=new-doc-dialog]')).toHaveCount(0);
+  };
+  await newDoc();
+  // pen-only stays on from the test above; switch it on when this test runs in a fresh app
+  await win.keyboard.press('Control+,');
+  await win.click('[data-testid=prefs-tab-input]');
+  const penOnly = win.locator('[data-testid=pref-penonly]');
+  if ((await penOnly.getAttribute('aria-checked')) !== 'true') await penOnly.click();
+  await expect(penOnly).toHaveAttribute('aria-checked', 'true');
+  await win.keyboard.press('Escape');
+  await expect(win.locator('[data-testid=prefs-dialog]')).toHaveCount(0);
+  const canvas = '[data-testid=canvas]';
+
+  // one palm rests first (a finger pan in pen-only mode), then the pen draws while the palm drifts
+  let before = await canvasState();
+  let stroke = drag('pen', 21, -200, 200, 0, 0.8);
+  await send(canvas, [
+    ['pointerdown', 'touch', 31, 150, 150],
+    ...stroke.slice(0, 6),
+    ['pointermove', 'touch', 31, 165, 160],
+    ...stroke.slice(6, 14),
+    ['pointermove', 'touch', 31, 180, 170],
+    ...stroke.slice(14),
+    ['pointerup', 'touch', 31, 180, 170],
+  ]);
+  let after = await canvasState();
+  expect(after.view).toEqual(before.view);
+  expect(after.centreAlpha).toBeGreaterThan(200);
+  expect(after.history).toBe(before.history + 1);
+
+  // two palms rest first (a pan / pinch / rotate gesture), then the pen draws while they spread
+  await newDoc();
+  before = await canvasState();
+  await send(canvas, [
+    ['pointerdown', 'touch', 32, 100, 150],
+    ['pointerdown', 'touch', 33, 140, 150],
+    ...stroke.slice(0, 6),
+    ['pointermove', 'touch', 32, 40, 200],
+    ['pointermove', 'touch', 33, 220, 100],
+    ...stroke.slice(6, -1),
+    ['pointerup', 'touch', 32, 40, 200],
+    ['pointerup', 'touch', 33, 220, 100],
+    ...stroke.slice(-1),
+  ]);
+  after = await canvasState();
+  expect(after.view).toEqual(before.view);
+  expect(after.centreAlpha).toBeGreaterThan(200);
+  expect(after.history).toBe(before.history + 1);
+
+  // a quick two-palm tap under the pen is not the two-finger undo: the stroke above stays
+  before = after;
+  stroke = drag('pen', 21, -200, 200, 120, 0.8);
+  await send(canvas, [
+    ['pointerdown', 'touch', 34, 100, 250],
+    ['pointerdown', 'touch', 35, 140, 250],
+    ...stroke.slice(0, 3),
+    ['pointerup', 'touch', 34, 100, 250],
+    ['pointerup', 'touch', 35, 140, 250],
+    ...stroke.slice(3),
+  ]);
+  after = await canvasState();
+  expect(after.view).toEqual(before.view);
+  expect(after.centreAlpha).toBeGreaterThan(200);
+  expect(after.history).toBe(before.history + 1);
 });

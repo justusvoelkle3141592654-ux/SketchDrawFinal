@@ -220,6 +220,15 @@ class CanvasController {
       return;
     }
     if (route === 'ignore') return;
+    if (route === 'preempt') {
+      // resting palms give way to the pen: stop their pan or gesture, without the quick-tap undo
+      if (this.active) this.active.tool.cancel(this.ctx(session));
+      this.active = null;
+      if (this.gesture) {
+        this.gesture = null;
+        useDocs.getState().bump();
+      }
+    }
     e.preventDefault();
     this.canvas.focus({ preventScroll: true });
 

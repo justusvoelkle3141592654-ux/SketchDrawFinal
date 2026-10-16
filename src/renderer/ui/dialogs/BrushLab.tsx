@@ -29,7 +29,7 @@ import type { StrokeSample } from '../../engine/stroke/pipeline';
 import { forge } from '../../platform';
 import { decodeImageBytes, resizeRGBA } from '../../app/image-codec';
 import { encodeGreyImage } from '../../engine/brush/tips';
-import { normalizePointer } from '../../input/normalize';
+import { coalesced, normalizePointer } from '../../input/normalize';
 import { parseHex, rgbToHex, type RGB } from '../../engine/color';
 import { renderBrushPreview } from '../brush-preview';
 
@@ -282,9 +282,7 @@ function TestArea({ brush, color }: { brush: BrushPreset; color: RGB }) {
         onPointerMove={(e) => {
           const eng = engineRef.current;
           if (!eng) return;
-          const ev = e.nativeEvent;
-          const list = ev.getCoalescedEvents?.() ?? [ev];
-          eng.addSamples((list.length ? list : [ev]).map(toSample));
+          eng.addSamples(coalesced(e.nativeEvent).map(toSample));
           paint();
         }}
         onPointerUp={() => {

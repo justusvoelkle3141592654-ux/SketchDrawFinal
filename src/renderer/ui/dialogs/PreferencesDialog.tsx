@@ -15,7 +15,7 @@ import { useInput } from '../../state/input';
 import { CURVE_PRESETS, makeCurve } from '../../engine/curve';
 import { allCommands, getCommand, shortcutsFor } from '../../app/commands';
 import { eventToShortcut, normalizeShortcut } from '../../app/shortcuts';
-import { normalizePointer } from '../../input/normalize';
+import { coalesced, normalizePointer } from '../../input/normalize';
 import { renderBrushPreview } from '../brush-preview';
 import { createBrush } from '../../engine/brush/schema';
 import type { StrokeSample } from '../../engine/stroke/pipeline';
@@ -250,8 +250,12 @@ function TestPad() {
       onPointerDown={(e) => (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)}
       onPointerMove={(e) => {
         const ev = e.nativeEvent;
-        const list = ev.getCoalescedEvents?.() ?? [ev];
-        report(normalizePointer(ev, usePrefs.getState().prefs.input, ev.buttons !== 0), ev, list.length || 1);
+        // same coalesced-events fallback as the canvas
+        report(
+          normalizePointer(ev, usePrefs.getState().prefs.input, ev.buttons !== 0),
+          ev,
+          coalesced(ev).length,
+        );
       }}
       onContextMenu={(e) => e.preventDefault()}
     >

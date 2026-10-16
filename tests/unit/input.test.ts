@@ -287,12 +287,32 @@ describe('canvas routing of pen, mouse and touch', () => {
     { penOnly: true, touchGestures: true },
   ];
 
-  it('pen and mouse always reach the tool', () => {
+  it('pen and mouse reach the tool on an idle canvas', () => {
     for (const p of allPrefs) {
       expect(routePointerDown('pen', p, idle)).toBe('tool');
       expect(routePointerDown('mouse', p, idle)).toBe('tool');
-      // a finger resting on the canvas does not block the pen
-      expect(routePointerDown('pen', p, { ...idle, touches: 1 })).toBe('tool');
+    }
+  });
+
+  it('in pen-only mode a pen or mouse takes over from resting palms', () => {
+    for (const touchGestures of [false, true]) {
+      const p = { penOnly: true, touchGestures };
+      // one palm down first: it is the active pointer, panning the view
+      const palm = { touches: 1, active: 'touch', gesture: false };
+      expect(routePointerDown('pen', p, palm)).toBe('preempt');
+      expect(routePointerDown('mouse', p, palm)).toBe('preempt');
+      // two palms down first: they run a pan / pinch / rotate gesture
+      const palms = { touches: 2, active: null, gesture: true };
+      expect(routePointerDown('pen', p, palms)).toBe('preempt');
+      expect(routePointerDown('mouse', p, palms)).toBe('preempt');
+    }
+  });
+
+  it('without pen-only mode a finger stroke or gesture keeps the canvas', () => {
+    for (const touchGestures of [false, true]) {
+      const p = { penOnly: false, touchGestures };
+      expect(routePointerDown('pen', p, { touches: 1, active: 'touch', gesture: false })).toBe('ignore');
+      expect(routePointerDown('pen', p, { touches: 2, active: null, gesture: true })).toBe('ignore');
     }
   });
 
@@ -323,8 +343,8 @@ describe('canvas routing of pen, mouse and touch', () => {
   it('ignores extra fingers and new pointers while busy', () => {
     const p = { penOnly: true, touchGestures: true };
     expect(routePointerDown('touch', p, { ...idle, touches: 3, gesture: true })).toBe('ignore');
-    expect(routePointerDown('pen', p, { touches: 2, active: null, gesture: true })).toBe('ignore');
-    expect(routePointerDown('pen', p, { ...idle, active: 'touch' })).toBe('ignore');
+    expect(routePointerDown('pen', p, { ...idle, touches: 1, active: 'pen' })).toBe('ignore');
     expect(routePointerDown('mouse', p, { ...idle, active: 'pen' })).toBe('ignore');
+    expect(routePointerDown('pen', p, { ...idle, active: 'mouse' })).toBe('ignore');
   });
 });
