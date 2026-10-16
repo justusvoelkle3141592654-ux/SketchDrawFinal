@@ -6,6 +6,7 @@ import { getPrefs, usePrefs, type ButtonAction } from '../state/preferences';
 import { useUi, type ToolId } from '../state/ui';
 import { useInput } from '../state/input';
 import { coalesced, normalizePointer } from '../input/normalize';
+import { routePointerDown } from '../input/routing';
 import { invert, apply, type Point } from '../engine/geometry';
 import { fitView, rotateAt, viewMatrix, zoomAt, type ViewState } from '../engine/view';
 import { canvasViewport, setRedrawHandler } from '../app/actions';
@@ -201,22 +202,24 @@ class CanvasController {
     }
     this.updateRect();
     const prefs = getPrefs();
-    if (e.pointerType === 'touch') {
-      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (this.touches.size === 2 && prefs.input.touchGestures) {
-        // a second finger turns a fresh touch stroke into a navigation gesture
-        if (this.active && this.active.pointerType === 'touch') {
-          if (e.timeStamp - this.active.startTime < 350 && this.active.tool.abort)
-            this.active.tool.abort(this.ctx(session));
-          else this.active.tool.cancel(this.ctx(session));
-          this.active = null;
-        }
-        this.startGesture(session);
-        return;
+    if (e.pointerType === 'touch') this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const route = routePointerDown(e.pointerType, prefs.input, {
+      touches: this.touches.size,
+      active: this.active?.pointerType ?? null,
+      gesture: this.gesture !== null,
+    });
+    if (route === 'gesture') {
+      // a second finger turns a fresh touch stroke into a navigation gesture
+      if (this.active) {
+        if (e.timeStamp - this.active.startTime < 350 && this.active.tool.abort)
+          this.active.tool.abort(this.ctx(session));
+        else this.active.tool.cancel(this.ctx(session));
+        this.active = null;
       }
-      if (this.touches.size > 2) return;
+      this.startGesture(session);
+      return;
     }
-    if (this.active || this.gesture) return;
+    if (route === 'ignore') return;
     e.preventDefault();
     this.canvas.focus({ preventScroll: true });
 
@@ -230,7 +233,7 @@ class CanvasController {
         toolId = handled;
         temp = true;
       }
-    } else if (e.pointerType === 'touch' && prefs.input.penOnly) {
+    } else if (route === 'pan') {
       toolId = 'pan';
       temp = true;
     } else if (heldKeys.space) {
