@@ -49,7 +49,7 @@ export type SaveResult =
   | { ok: false; canceled: false; error: string };
 
 export interface SaveDocumentRequest {
-  /** Existing path (must have been granted by a dialog/recent list); omitted or saveAs → show dialog. */
+  /** Existing .cforge path granted by a dialog, recents, a drop or the OS; otherwise or saveAs → dialog. */
   path?: string;
   suggestedName: string;
   bytes: Uint8Array;

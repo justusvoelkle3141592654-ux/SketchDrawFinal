@@ -12,13 +12,15 @@ if (process.env.CFORGE_USER_DATA_DIR) {
   app.setPath('userData', resolve(process.env.CFORGE_USER_DATA_DIR));
 }
 
-const devServerUrl = process.env.CFORGE_DEV_SERVER_URL;
 // Fits the work area of 1366 × 768 at 125 % scaling (about 1093 × 566 DIP with the taskbar).
 const MIN_WIDTH = 1024;
 const MIN_HEIGHT = 540;
-const rendererIndex = join(__dirname, '../renderer/index.html');
-// The only page that may use IPC: the built index.html, or the Vite dev server in development.
-const rendererEntryUrl = devServerUrl ?? pathToFileURL(rendererIndex).href;
+// The only page that may use IPC, and exactly the URL the window loads: the Vite dev server in
+// development (an empty value counts as unset), otherwise the built index.html. loadFile() would
+// leave a '%' in the install path unencoded, so the frame URL would no longer decode to this file
+// and every IPC call would be rejected.
+const rendererEntryUrl =
+  process.env.CFORGE_DEV_SERVER_URL || pathToFileURL(join(__dirname, '../renderer/index.html')).href;
 let mainWindow: BrowserWindow | null = null;
 let allowClose = false;
 const pendingOpenPaths: string[] = [];
@@ -190,11 +192,7 @@ async function createWindow() {
     hangPrompt = null;
   });
 
-  if (devServerUrl) {
-    await mainWindow.loadURL(devServerUrl);
-  } else {
-    await mainWindow.loadFile(rendererIndex);
-  }
+  await mainWindow.loadURL(rendererEntryUrl);
 }
 
 const gotLock = process.env.CFORGE_ALLOW_MULTI_INSTANCE ? true : app.requestSingleInstanceLock();

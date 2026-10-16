@@ -18,7 +18,7 @@ import {
 import { validateCforgeBytes } from '../shared/cforge-validate';
 import { atomicWrite, describeFsError, fileExists } from './files';
 import * as data from './appdata';
-import { PathGrants } from './ipc-guard';
+import { isDocumentPath, PathGrants } from './ipc-guard';
 
 const MAX_READ_BYTES = 1536 * 1024 * 1024;
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp'];
@@ -148,7 +148,8 @@ export function registerIpc(isTrusted: SenderCheck): void {
       return { ok: false, canceled: false, error: 'Invalid save request.' };
     }
     let target: string;
-    if (!req.saveAs && typeof req.path === 'string' && isAbsolute(req.path) && isGranted(req.path)) {
+    // without a dialog only over a granted .cforge, never over an image or palette opened earlier
+    if (!req.saveAs && isDocumentPath(req.path) && isGranted(req.path)) {
       target = req.path;
     } else {
       const chosen = await showSave(
@@ -298,7 +299,7 @@ export function registerIpc(isTrusted: SenderCheck): void {
         {
           id: meta.id,
           title: meta.title,
-          // kept only if already granted; recoveryRead re-grants it, possibly after a restart
+          // kept only if it is a granted .cforge; recoveryRead re-grants it, possibly after a restart
           originalPath: grants.recoveryPath(meta.originalPath),
           savedAt: Number(meta.savedAt) || Date.now(),
           width: Number(meta.width) || 0,
@@ -315,9 +316,10 @@ export function registerIpc(isTrusted: SenderCheck): void {
   handle(IPC.recoveryRead, async (_e, id: unknown) => {
     if (!data.isValidRecoveryId(id)) return null;
     const entries = await data.listRecovery();
-    const entry = entries.find((r) => r.id === id);
-    // recoveryWrite stored this path only if it was granted then
-    if (entry?.originalPath) grant(entry.originalPath);
+    const original = entries.find((r) => r.id === id)?.originalPath;
+    // recoveryWrite stored this path only if it was granted then; the .cforge check also covers
+    // snapshots written by older versions, which stored any path
+    if (isDocumentPath(original)) grant(original);
     return data.readRecovery(id);
   });
   handle(IPC.recoveryDelete, (_e, id: unknown) => {
