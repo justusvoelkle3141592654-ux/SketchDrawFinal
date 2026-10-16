@@ -164,6 +164,8 @@ export function Slider(props: {
           onClick={() => {
             props.onChange(props.defaultValue!);
             props.onCommit?.(props.defaultValue!);
+            // the button hides once the value is reset; keep focus on the slider (and inside dialogs)
+            document.getElementById(id)?.focus();
           }}
         >
           <Icon name="reset" size={13} />

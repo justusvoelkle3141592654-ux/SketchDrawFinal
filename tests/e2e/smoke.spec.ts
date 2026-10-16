@@ -266,3 +266,32 @@ test('mirror view (H, Shift+H) changes the view only; adjustments are labelled d
   );
   await win.keyboard.press('Escape');
 });
+
+test('Brush Lab: a slider reset icon restores the saved value like a normal edit', async () => {
+  await win.keyboard.press('Control+b');
+  const lab = win.locator('[data-testid=brush-lab]');
+  await expect(lab).toBeVisible();
+  const state = lab.locator('.lab-dirty');
+  const clone = lab.locator('[data-testid=lab-save-as-new]');
+  const field = lab.getByLabel('Diameter value', { exact: true });
+  // the icon is hidden while the value matches the saved brush
+  const reset = lab.locator('button[aria-label="Reset Diameter"]');
+  await expect(state).toHaveText('Saved');
+  await expect(clone).toHaveText('Clone');
+  await expect(reset).toBeHidden();
+  const saved = await field.inputValue();
+  await field.fill('123.4');
+  await field.press('Enter');
+  await expect(state).toHaveText('Modified');
+  await expect(clone).toHaveText('Save as new');
+  await expect(reset).toBeVisible();
+  await expect(reset).toHaveAttribute('data-tip', `Reset to ${saved}px`);
+  await reset.click();
+  await expect(field).toHaveValue(saved);
+  await expect(state).toHaveText('Saved');
+  await expect(clone).toHaveText('Clone');
+  await expect(reset).toBeHidden();
+  // focus stays in the dialog, so Escape still closes it (no unsaved changes, no prompt)
+  await win.keyboard.press('Escape');
+  await expect(lab).toHaveCount(0);
+});

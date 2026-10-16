@@ -348,8 +348,10 @@ function LiveStamp({ brush }: { brush: BrushPreset }) {
 // ------------------------------------------------------------------------------- sections
 
 type Patch = (fn: (b: BrushPreset) => void) => void;
+/** `base` is the brush as last saved; each slider's reset icon restores its value from it. */
+type SectionProps = { b: BrushPreset; base: BrushPreset; patch: Patch };
 
-function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
+function TipSection({ b, base, patch }: SectionProps) {
   const importTip = async () => {
     const f = await forge.importImage();
     if (!f) return;
@@ -412,6 +414,7 @@ function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
           <Slider
             label="Variation seed"
             value={b.tip.generatorSeed ?? 1}
+            defaultValue={base.tip.generatorSeed ?? 1}
             min={1}
             max={99}
             step={1}
@@ -445,6 +448,7 @@ function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Diameter"
         value={b.diameter}
+        defaultValue={base.diameter}
         min={0.5}
         max={1000}
         step={0.1}
@@ -457,6 +461,7 @@ function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Minimum diameter"
         value={b.minDiameter}
+        defaultValue={base.minDiameter}
         min={0}
         max={1}
         step={0.01}
@@ -468,6 +473,7 @@ function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Hardness"
         value={b.tip.hardness}
+        defaultValue={base.tip.hardness}
         min={0}
         max={1}
         step={0.01}
@@ -479,6 +485,7 @@ function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Roundness"
         value={b.tip.aspect}
+        defaultValue={base.tip.aspect}
         min={0.05}
         max={1}
         step={0.01}
@@ -490,6 +497,7 @@ function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Angle"
         value={b.tip.angle}
+        defaultValue={base.tip.angle}
         min={-180}
         max={180}
         step={1}
@@ -506,13 +514,14 @@ function TipSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
   );
 }
 
-function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
+function StrokeSection({ b, base, patch }: SectionProps) {
   return (
     <div className="lab-grid">
       <h3>Paint</h3>
       <Slider
         label="Opacity"
         value={b.opacity}
+        defaultValue={base.opacity}
         min={0.01}
         max={1}
         step={0.01}
@@ -524,6 +533,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Flow"
         value={b.flow}
+        defaultValue={base.flow}
         min={0.001}
         max={1}
         step={0.001}
@@ -565,6 +575,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Spacing"
         value={b.stroke.spacing}
+        defaultValue={base.stroke.spacing}
         min={0.01}
         max={2}
         step={0.01}
@@ -576,6 +587,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Count"
         value={b.count}
+        defaultValue={base.count}
         min={1}
         max={16}
         step={1}
@@ -584,6 +596,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Count jitter"
         value={b.countJitter}
+        defaultValue={base.countJitter}
         min={0}
         max={1}
         step={0.01}
@@ -594,6 +607,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Scatter"
         value={b.scatter}
+        defaultValue={base.scatter}
         min={0}
         max={4}
         step={0.01}
@@ -605,6 +619,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Rotation jitter"
         value={b.rotationJitter}
+        defaultValue={base.rotationJitter}
         min={0}
         max={180}
         step={1}
@@ -626,6 +641,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Stabiliser strength"
         value={b.stroke.stabilizerAmount}
+        defaultValue={base.stroke.stabilizerAmount}
         min={0}
         max={1}
         step={0.01}
@@ -643,6 +659,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Airbrush flow while resting"
         value={b.stroke.airbrushRate}
+        defaultValue={base.stroke.airbrushRate}
         min={0}
         max={120}
         step={1}
@@ -659,6 +676,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Seed"
         value={b.seed}
+        defaultValue={base.seed}
         min={1}
         max={9999}
         step={1}
@@ -669,7 +687,7 @@ function StrokeSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
   );
 }
 
-function DynamicsSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
+function DynamicsSection({ b, base, patch }: SectionProps) {
   const [open, setOpen] = useState<string | null>(b.dynamics[0]?.id ?? null);
   const add = () => {
     const m: DynamicsMapping = {
@@ -756,6 +774,7 @@ function DynamicsSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
           <Slider
             label="Amount"
             value={m.amount}
+            defaultValue={base.dynamics.find((d) => d.id === m.id)?.amount}
             min={0}
             max={1}
             step={0.01}
@@ -804,7 +823,7 @@ function DynamicsSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
   );
 }
 
-function TextureSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
+function TextureSection({ b, base, patch }: SectionProps) {
   const t = b.texture;
   const importTexture = async () => {
     const f = await forge.importImage();
@@ -858,6 +877,7 @@ function TextureSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Scale"
         value={t.scale}
+        defaultValue={base.texture.scale}
         min={0.1}
         max={8}
         step={0.05}
@@ -869,6 +889,7 @@ function TextureSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Contrast"
         value={t.contrast}
+        defaultValue={base.texture.contrast}
         min={0}
         max={3}
         step={0.05}
@@ -879,6 +900,7 @@ function TextureSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Strength"
         value={t.strength}
+        defaultValue={base.texture.strength}
         min={0}
         max={1}
         step={0.01}
@@ -890,6 +912,7 @@ function TextureSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Movement"
         value={t.movement}
+        defaultValue={base.texture.movement}
         min={0}
         max={1}
         step={0.01}
@@ -909,7 +932,7 @@ function TextureSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
   );
 }
 
-function ColourSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
+function ColourSection({ b, base, patch }: SectionProps) {
   const [hex, setHex] = useState(rgbToHex(b.fixedColor));
   useEffect(() => setHex(rgbToHex(b.fixedColor)), [b.fixedColor]);
   return (
@@ -955,6 +978,7 @@ function ColourSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Hue"
         value={b.colorJitter.hue}
+        defaultValue={base.colorJitter.hue}
         min={0}
         max={1}
         step={0.005}
@@ -965,6 +989,7 @@ function ColourSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Saturation"
         value={b.colorJitter.saturation}
+        defaultValue={base.colorJitter.saturation}
         min={0}
         max={1}
         step={0.01}
@@ -975,6 +1000,7 @@ function ColourSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Luminance"
         value={b.colorJitter.luminance}
+        defaultValue={base.colorJitter.luminance}
         min={0}
         max={1}
         step={0.01}
@@ -994,7 +1020,7 @@ function ColourSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
   );
 }
 
-function MixingSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
+function MixingSection({ b, base, patch }: SectionProps) {
   const m = b.mixing;
   const direct = b.engine === 'smudge' || b.engine === 'blender' || m.mode !== 'none';
   return (
@@ -1019,6 +1045,7 @@ function MixingSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Strength"
         value={m.strength}
+        defaultValue={base.mixing.strength}
         min={0}
         max={1}
         step={0.01}
@@ -1030,6 +1057,7 @@ function MixingSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Pick-up"
         value={m.pickup}
+        defaultValue={base.mixing.pickup}
         min={0}
         max={1}
         step={0.01}
@@ -1042,6 +1070,7 @@ function MixingSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Persistence"
         value={m.persistence}
+        defaultValue={base.mixing.persistence}
         min={0}
         max={1}
         step={0.01}
@@ -1054,6 +1083,7 @@ function MixingSection({ b, patch }: { b: BrushPreset; patch: Patch }) {
       <Slider
         label="Fresh paint"
         value={m.dilution}
+        defaultValue={base.mixing.dilution}
         min={0}
         max={1}
         step={0.01}
@@ -1095,6 +1125,8 @@ export function BrushLab() {
   const isNew = !store.get(initial.id);
   const [draft, setDraft] = useState<BrushPreset>(initial);
   const [saved, setSaved] = useState<string>(JSON.stringify(initial));
+  // same reference as the header Reset: per-control reset icons restore the last saved values
+  const base = useMemo(() => JSON.parse(saved) as BrushPreset, [saved]);
   const [section, setSection] = useState<SectionId>('tip');
   const dirty = JSON.stringify(draft) !== saved || isNew;
   const patch: Patch = (fn) =>
@@ -1223,8 +1255,18 @@ export function BrushLab() {
           </div>
         </div>
         <div className="lab-actions">
-          <Button icon="duplicate" onClick={saveAsNew} title="Save these settings as a new brush">
-            Save as new
+          {/* one action: without edits it clones the brush, with edits it saves them as a new brush */}
+          <Button
+            icon="duplicate"
+            onClick={saveAsNew}
+            title={
+              dirty
+                ? 'Save these settings as a new brush; the original keeps its last saved settings'
+                : 'Clone this brush and continue editing the copy'
+            }
+            testId="lab-save-as-new"
+          >
+            {dirty ? 'Save as new' : 'Clone'}
           </Button>
           <Button icon="reset" onClick={() => void reset()} disabled={!dirty || isNew}>
             Reset
@@ -1251,12 +1293,12 @@ export function BrushLab() {
           ))}
         </nav>
         <div className="lab-section" role="tabpanel">
-          {section === 'tip' ? <TipSection b={draft} patch={patch} /> : null}
-          {section === 'stroke' ? <StrokeSection b={draft} patch={patch} /> : null}
-          {section === 'dynamics' ? <DynamicsSection b={draft} patch={patch} /> : null}
-          {section === 'texture' ? <TextureSection b={draft} patch={patch} /> : null}
-          {section === 'colour' ? <ColourSection b={draft} patch={patch} /> : null}
-          {section === 'mixing' ? <MixingSection b={draft} patch={patch} /> : null}
+          {section === 'tip' ? <TipSection b={draft} base={base} patch={patch} /> : null}
+          {section === 'stroke' ? <StrokeSection b={draft} base={base} patch={patch} /> : null}
+          {section === 'dynamics' ? <DynamicsSection b={draft} base={base} patch={patch} /> : null}
+          {section === 'texture' ? <TextureSection b={draft} base={base} patch={patch} /> : null}
+          {section === 'colour' ? <ColourSection b={draft} base={base} patch={patch} /> : null}
+          {section === 'mixing' ? <MixingSection b={draft} base={base} patch={patch} /> : null}
         </div>
         <div className="lab-preview">
           <h3>Preview</h3>
