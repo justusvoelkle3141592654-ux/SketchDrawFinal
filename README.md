@@ -77,6 +77,10 @@ reference/ui/   third-party reference screenshots (research only, never packaged
 |---|---|---|
 | ![Start screen](docs/screenshots/start-screen.png) | ![New canvas dialog](docs/screenshots/new-canvas.png) | ![Brush Lab](docs/screenshots/brush-lab.png) |
 
+Android tablet (Android 15 emulator, stroke drawn with a touch gesture):
+
+![Canvas Forge on an Android tablet emulator](docs/screenshots/android-tablet.png)
+
 ## Documentation
 
 * [PLAN.md](PLAN.md) — architecture plan, milestones, risks, trade-offs

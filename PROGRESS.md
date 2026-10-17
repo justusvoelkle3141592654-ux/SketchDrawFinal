@@ -255,4 +255,5 @@ Also changed: the main window now shows itself after 4 s even if the first paint
 | `npm run package:android` (local, JDK 21, SDK platform 36) | `app-debug.apk`, 4.3 MB; `aapt2 dump badging`: package `app.canvasforge`, versionName 1.0.3, versionCode 10003, targetSdk 36, permissions as above |
 | Renderer in Chromium with touch emulation at 1280×800, 800×1280, 915×412, 412×915 | loads, new canvas, no page errors; layout checked on screenshots |
 | `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e` | pass (180 unit, 23 E2E); the desktop app is unaffected |
-| On a real Android device | not tested from this host (no device, no KVM for a local emulator) |
+| CI emulator check (Pixel Tablet, Android 15, WebView 124) | green on `e4e28a1`: app started, canvas created, touch stroke painted (460 of the sampled pixels on Layer 1), no page or console errors, no crash; screenshot in `docs/screenshots/android-tablet.png` |
+| On a real Android device | not tested (no device available) |
