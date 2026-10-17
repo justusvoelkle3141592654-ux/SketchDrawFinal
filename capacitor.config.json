@@ -4,8 +4,7 @@
   "webDir": "dist/renderer",
   "android": {
     "allowMixedContent": false,
-    "captureInput": true,
-    "webContentsDebuggingEnabled": false
+    "captureInput": true
   },
   "backgroundColor": "#1e1e1e"
 }

@@ -248,7 +248,7 @@ Also changed: the main window now shows itself after 4 s even if the first paint
 * No INTERNET permission; storage permission only up to Android 10 / 12 (read). Version name and code come from `package.json` (1.0.3 → 10003).
 * App icon: adaptive vector icon with the same anvil path, PNGs for Android 7; dark launch screen instead of Capacitor's default splash.
 * Narrow screens (< 760 px, phones in portrait): Colour, Brushes and Layers panels start hidden.
-* CI job `android`: builds the APK (release-signed when the signing secrets exist, otherwise debug-signed), installs it in an Android 15 emulator, creates a canvas, draws a stroke, checks for crashes and console errors, uploads screenshot and logcat.
+* CI job `android`: builds the APK (release-signed when the signing secrets exist, otherwise debug-signed), installs the debug build in an Android 15 Pixel Tablet emulator and drives its WebView with Playwright (`scripts/android-smoke.mjs`): new canvas, a finger stroke via `adb` input, the stroke must reach the active layer, no page or console errors, no crash; uploads screenshots and logcat. Debug builds allow WebView debugging (Capacitor default), release builds do not. First emulator runs: the app started and showed the start screen and the New canvas dialog (WebView 124); the earlier UI-dump based check could not see the dialog's buttons because the WebView's accessibility snapshot did not update.
 
 | Check | Result |
 |---|---|

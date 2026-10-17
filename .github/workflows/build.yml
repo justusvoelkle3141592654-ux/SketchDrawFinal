@@ -164,17 +164,19 @@ jobs:
           set -euo pipefail
           npm run android:sync
           version=$(node -p "require('./package.json').version")
-          mkdir -p apk
+          mkdir -p apk apk-test
+          # The debug build is debuggable, so the emulator check can drive its WebView.
+          (cd android && ./gradlew --no-daemon assembleDebug)
+          cp android/app/build/outputs/apk/debug/app-debug.apk apk-test/app-debug.apk
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
             (cd android && ./gradlew --no-daemon assembleRelease)
             cp android/app/build/outputs/apk/release/app-release.apk "apk/canvas-forge-$version.apk"
           else
-            (cd android && ./gradlew --no-daemon assembleDebug)
-            cp android/app/build/outputs/apk/debug/app-debug.apk "apk/canvas-forge-$version.apk"
+            cp apk-test/app-debug.apk "apk/canvas-forge-$version.apk"
           fi
-          ls -la apk
+          ls -la apk apk-test
 
       - name: Enable KVM for the emulator
         run: |
@@ -190,7 +192,7 @@ jobs:
           arch: x86_64
           profile: pixel_tablet
           disable-animations: true
-          script: bash scripts/android-smoke.sh apk/*.apk android-smoke
+          script: node scripts/android-smoke.mjs apk-test/app-debug.apk android-smoke
 
       - name: Upload emulator screenshot and log
         if: always()

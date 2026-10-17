@@ -52,7 +52,7 @@ macOS and iOS are not built.
 
 ## Builds and releases
 
-`.github/workflows/build.yml` runs on every push, on pull requests and from the **Run workflow** button: lint, typecheck and unit tests, then the Windows installer on a Windows runner, the `.deb` on Linux (installed, checked and removed again on the runner) and the Android APK (installed and started in an Android 15 emulator, which opens a canvas and draws a stroke). Both are attached to the run as artifacts. Pushing a tag such as `v1.0.3` (or `v1.0.3-beta.1`) additionally sets the version from the tag and publishes the installers and the APK as a GitHub Release (tags with a `-` suffix become pre-releases).
+`.github/workflows/build.yml` runs on every push, on pull requests and from the **Run workflow** button: lint, typecheck and unit tests, then the Windows installer on a Windows runner, the `.deb` on Linux (installed, checked and removed again on the runner) and the Android APK (installed in an Android 15 tablet emulator, where Playwright drives the app's WebView: it opens a canvas, draws a finger stroke and checks that it reached the layer). All are attached to the run as artifacts. Pushing a tag such as `v1.0.3` (or `v1.0.3-beta.1`) additionally sets the version from the tag and publishes the installers and the APK as a GitHub Release (tags with a `-` suffix become pre-releases).
 
 `scripts/render-icons.mjs` regenerates `build/icon.png` and `build/icon.ico` from `build/icon.svg` (needs Playwright's Chromium and ImageMagick).
 
