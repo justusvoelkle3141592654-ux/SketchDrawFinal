@@ -223,3 +223,19 @@ Also changed: the main window now shows itself after 4 s even if the first paint
 | `npm test` | 180 tests passed |
 | `npm run test:e2e` | 23 tests passed, including the axe-core audit (no contrast or other violations in dark/light, compact/roomy) |
 | `npx prettier --check .` | clean |
+
+---
+
+## Installable builds from GitHub Actions
+
+* `.github/workflows/build.yml` replaces `release.yml`. It runs on every push, on pull requests and manually (**Run workflow**); artifacts `Canvas-Forge-Windows-Installer` (NSIS setup) and `Canvas-Forge-Linux-deb` (Debian package), kept 30 days. Version tags additionally publish both as a GitHub Release.
+* Only installers are produced: the Windows portable `.exe` and the Linux AppImage are no longer built by CI (both only run from the download, nothing is installed). The `.deb` registers the `application/x-canvas-forge` MIME type for `.cforge` files.
+* `package.json` version set to 1.0.3, following the existing `v1.0.2` release, so untagged builds do not report an older version than the last release.
+
+| Command | Result |
+|---|---|
+| `npm run package:linux-deb` | `release/canvas-forge_1.0.3_amd64.deb` built |
+| `apt-get install ./…deb` (Ubuntu 24.04 container) | installs into `/opt/Canvas Forge`, `/usr/bin/canvas-forge`, `canvas-forge.desktop` (application menu, `StartupWMClass=canvas-forge`, MIME type), icon and MIME XML |
+| Installed app under Xvfb | packaged app starts from `/opt/Canvas Forge`, new document, stroke painted, no page errors |
+| `apt-get remove canvas-forge` | program folder, menu entry and `/usr/bin` link removed |
+| Windows installer | built by the workflow on `windows-latest`; not launched on Windows from this host |

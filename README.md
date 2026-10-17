@@ -8,9 +8,20 @@ Canvas Forge is an offline raster drawing and painting application for Windows 1
 
 ![Canvas Forge workspace](docs/screenshots/workspace.png)
 
-## Install (Windows)
+## Install
 
-The ready-built installer is in [`installer/`](installer/): run `Canvas Forge Setup 0.1.0.exe`. It installs Canvas Forge like any other Windows app (Start menu and desktop shortcut, `.cforge` file association, uninstall via Settings → Apps). Details and the SmartScreen note: [installer/README.md](installer/README.md).
+Canvas Forge is installed like any other desktop app; there is no portable or "run from the download" version.
+
+**Latest release:** open [Releases](https://github.com/justusvoelkle3141592654-ux/SketchDrawFinal/releases), download the file for your system and run it.
+
+**Latest build of any branch:** open the repository's **Actions** tab → **Build installers** → the newest green run → **Artifacts** at the bottom of the page. GitHub delivers each artifact as a ZIP; unzip it and run the file inside. Artifacts are kept for 30 days. **Run workflow** on the same page starts a fresh build.
+
+| System | File | Install | Uninstall |
+|---|---|---|---|
+| Windows 10/11 x64 | `Canvas Forge Setup <version>.exe` (artifact `Canvas-Forge-Windows-Installer`) | Run it, choose *only for me* or *all users*. Adds a Start menu entry, an optional desktop shortcut and the `.cforge` file association. The installer is not code-signed, so SmartScreen may warn: **More info** → **Run anyway**. | Settings → Apps → Canvas Forge → Uninstall |
+| Ubuntu / Debian x64 | `canvas-forge_<version>_amd64.deb` (artifact `Canvas-Forge-Linux-deb`) | Open it with the software installer, or `sudo apt install ./canvas-forge_<version>_amd64.deb`. Adds Canvas Forge to the application menu. | `sudo apt remove canvas-forge` |
+
+macOS is not built.
 
 ## Requirements
 
@@ -30,13 +41,14 @@ The ready-built installer is in [`installer/`](installer/): run `Canvas Forge Se
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | Build, then Electron + Playwright smoke test (uses `xvfb-run` automatically on Linux without a display) |
 | `npm run perf` | Engine benchmarks (prints timings) |
-| `npm run package:win` | Windows NSIS installer + portable `.exe` into `release/` (on Linux this needs Wine, including 32-bit support, for the NSIS uninstaller stub and the executable's icon/version resources; on Windows no extra tools are needed) |
+| `npm run package:win` | Windows NSIS installer into `release/` (on Linux this needs Wine, including 32-bit support, for the NSIS uninstaller stub and the executable's icon/version resources; on Windows no extra tools are needed) |
 | `npm run package:linux-dir` | Unpacked Linux build (used to launch-test the packaged app on Linux) |
-| `npm run package:linux-appimage` | Linux AppImage (x64) into `release/` |
+| `npm run package:linux-deb` | Linux `.deb` installer package (x64) into `release/` |
+| `npm run package:linux-appimage` | Linux AppImage (x64) into `release/` (not published by CI) |
 
-## Releases
+## Builds and releases
 
-Pushing a tag such as `v0.2.0` (or `v0.2.0-beta.1`) runs `.github/workflows/release.yml`: it sets the package version from the tag, runs lint, typecheck and unit tests, builds the Windows installer and portable `.exe` on a Windows runner and the AppImage on Linux, checks that all three files exist and publishes them as a GitHub Release (tags with a `-` suffix become pre-releases).
+`.github/workflows/build.yml` runs on every push, on pull requests and from the **Run workflow** button: lint, typecheck and unit tests, then the Windows installer on a Windows runner and the `.deb` on Linux (installed, checked and removed again on the runner). Both are attached to the run as artifacts. Pushing a tag such as `v1.0.3` (or `v1.0.3-beta.1`) additionally sets the version from the tag and publishes both installers as a GitHub Release (tags with a `-` suffix become pre-releases).
 
 `scripts/render-icons.mjs` regenerates `build/icon.png` and `build/icon.ico` from `build/icon.svg` (needs Playwright's Chromium and ImageMagick).
 

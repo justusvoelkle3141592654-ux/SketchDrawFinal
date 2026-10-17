@@ -1,5 +1,7 @@
 # Canvas Forge installer for Windows
 
+> This is the first build (0.1.0), kept for reference. Newer installers are built by GitHub Actions; see *Install* in the main [README](../README.md).
+
 `Canvas Forge Setup 0.1.0.exe` installs Canvas Forge as a regular Windows application (x64, Windows 10/11).
 
 * Size: 96 966 197 bytes

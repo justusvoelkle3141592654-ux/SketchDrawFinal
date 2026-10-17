@@ -21,15 +21,16 @@ electronLanguages:
   - de
 fileAssociations:
   - ext: cforge
+    mimeType: application/x-canvas-forge
     name: Canvas Forge Document
     description: Canvas Forge document
     role: Editor
     icon: build/icon.ico
+# Distributed as installers only: the NSIS setup on Windows and a .deb package on Linux. Both install
+# the app with a Start menu / application menu entry, the .cforge association and an uninstaller.
 win:
   target:
     - target: nsis
-      arch: [x64]
-    - target: portable
       arch: [x64]
   icon: build/icon.ico
   # The executable's icon and version resources are set with rcedit (on Linux this needs Wine).
@@ -45,15 +46,16 @@ nsis:
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
   artifactName: Canvas Forge Setup ${version}.${ext}
-portable:
-  artifactName: Canvas Forge ${version} Portable.${ext}
 linux:
   target:
-    - AppImage
-    - dir
+    - deb
   category: Graphics
+  maintainer: Canvas Forge contributors
+  synopsis: Raster drawing and painting for pen tablets
   # Name the .desktop entry after package.json's desktopName so it matches the window's WM_CLASS.
   syncDesktopName: true
+deb:
+  artifactName: canvas-forge_${version}_${arch}.${ext}
 appImage:
   artifactName: Canvas-Forge-${version}-linux-${arch}.${ext}
   compression: zstd
