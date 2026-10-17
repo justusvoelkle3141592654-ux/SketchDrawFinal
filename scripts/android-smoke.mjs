@@ -43,7 +43,16 @@ try {
   const size = /(\d+)x(\d+)/.exec(adb('shell', 'wm', 'size').trim().split('\n').pop());
   const [w, h] = [Number(size[1]), Number(size[2])];
   const y = Math.round(h * 0.55);
-  await device.input.swipe({ x: Math.round(w * 0.25), y }, [{ x: Math.round(w * 0.55), y }], 60);
+  adb(
+    'shell',
+    'input',
+    'swipe',
+    String(Math.round(w * 0.25)),
+    String(y),
+    String(Math.round(w * 0.55)),
+    String(y),
+    '600',
+  );
   await page.waitForTimeout(1500);
   writeFileSync(join(out, '2-after-stroke.png'), await device.screenshot());
 
