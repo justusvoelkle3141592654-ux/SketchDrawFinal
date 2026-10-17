@@ -6,7 +6,13 @@ import {
   normalizePointer,
   type RawPointerData,
 } from '../../src/renderer/input/normalize';
-import { routePointerDown, type CanvasPointerState } from '../../src/renderer/input/routing';
+import {
+  PEN_NEAR_TIMEOUT,
+  PenProximity,
+  routePointerDown,
+  TouchContacts,
+  type CanvasPointerState,
+} from '../../src/renderer/input/routing';
 import {
   DEFAULT_PREFERENCES,
   sanitizePreferences,
@@ -279,7 +285,7 @@ describe('coalesced samples', () => {
 });
 
 describe('canvas routing of pen, mouse and touch', () => {
-  const idle: CanvasPointerState = { touches: 0, active: null, gesture: false };
+  const idle: CanvasPointerState = { touches: 0, active: null, gesture: false, penNear: false };
   const allPrefs = [
     { penOnly: false, touchGestures: false },
     { penOnly: false, touchGestures: true },
@@ -291,6 +297,9 @@ describe('canvas routing of pen, mouse and touch', () => {
     for (const p of allPrefs) {
       expect(routePointerDown('pen', p, idle)).toBe('tool');
       expect(routePointerDown('mouse', p, idle)).toBe('tool');
+      // a finger resting between strokes (e.g. one left after a pinch) does not block the pen
+      expect(routePointerDown('pen', p, { ...idle, touches: 1 })).toBe('tool');
+      expect(routePointerDown('mouse', p, { ...idle, touches: 1 })).toBe('tool');
     }
   });
 
@@ -298,11 +307,11 @@ describe('canvas routing of pen, mouse and touch', () => {
     for (const touchGestures of [false, true]) {
       const p = { penOnly: true, touchGestures };
       // one palm down first: it is the active pointer, panning the view
-      const palm = { touches: 1, active: 'touch', gesture: false };
+      const palm = { ...idle, touches: 1, active: 'touch' };
       expect(routePointerDown('pen', p, palm)).toBe('preempt');
       expect(routePointerDown('mouse', p, palm)).toBe('preempt');
       // two palms down first: they run a pan / pinch / rotate gesture
-      const palms = { touches: 2, active: null, gesture: true };
+      const palms = { ...idle, touches: 2, gesture: true };
       expect(routePointerDown('pen', p, palms)).toBe('preempt');
       expect(routePointerDown('mouse', p, palms)).toBe('preempt');
     }
@@ -311,8 +320,8 @@ describe('canvas routing of pen, mouse and touch', () => {
   it('without pen-only mode a finger stroke or gesture keeps the canvas', () => {
     for (const touchGestures of [false, true]) {
       const p = { penOnly: false, touchGestures };
-      expect(routePointerDown('pen', p, { touches: 1, active: 'touch', gesture: false })).toBe('ignore');
-      expect(routePointerDown('pen', p, { touches: 2, active: null, gesture: true })).toBe('ignore');
+      expect(routePointerDown('pen', p, { ...idle, touches: 1, active: 'touch' })).toBe('ignore');
+      expect(routePointerDown('pen', p, { ...idle, touches: 2, gesture: true })).toBe('ignore');
     }
   });
 
@@ -328,15 +337,39 @@ describe('canvas routing of pen, mouse and touch', () => {
       const two = { ...idle, touches: 2, active: 'touch' };
       expect(routePointerDown('touch', { penOnly, touchGestures: true }, two)).toBe('gesture');
       expect(routePointerDown('touch', { penOnly, touchGestures: false }, two)).toBe('ignore');
+      // two fingers and nothing active: a finger rests (one left after a pinch), another lands
+      const resting = { ...idle, touches: 2 };
+      expect(routePointerDown('touch', { penOnly, touchGestures: true }, resting)).toBe('gesture');
+      expect(routePointerDown('touch', { penOnly, touchGestures: false }, resting)).toBe(
+        penOnly ? 'pan' : 'tool',
+      );
     }
   });
 
-  it('touch never disturbs a pen or mouse stroke in progress', () => {
+  it('a touch during a pen or mouse stroke is a palm', () => {
     for (const p of allPrefs) {
       for (const active of ['pen', 'mouse']) {
-        expect(routePointerDown('touch', p, { ...idle, touches: 1, active })).toBe('ignore');
-        expect(routePointerDown('touch', p, { ...idle, touches: 2, active })).toBe('ignore');
+        expect(routePointerDown('touch', p, { ...idle, touches: 1, active })).toBe('palm');
+        expect(routePointerDown('touch', p, { ...idle, touches: 2, active })).toBe('palm');
       }
+    }
+  });
+
+  it('in pen-only mode a touch while the pen hovers is a palm', () => {
+    for (const touchGestures of [false, true]) {
+      const near = { ...idle, penNear: true };
+      expect(routePointerDown('touch', { penOnly: true, touchGestures }, { ...near, touches: 1 })).toBe(
+        'palm',
+      );
+      expect(routePointerDown('touch', { penOnly: true, touchGestures }, { ...near, touches: 2 })).toBe(
+        'palm',
+      );
+      // without pen-only mode a finger is real input, hovering pen or not
+      expect(routePointerDown('touch', { penOnly: false, touchGestures }, { ...near, touches: 1 })).toBe(
+        'tool',
+      );
+      // the pen itself is not affected
+      expect(routePointerDown('pen', { penOnly: true, touchGestures }, near)).toBe('tool');
     }
   });
 
@@ -346,5 +379,78 @@ describe('canvas routing of pen, mouse and touch', () => {
     expect(routePointerDown('pen', p, { ...idle, touches: 1, active: 'pen' })).toBe('ignore');
     expect(routePointerDown('mouse', p, { ...idle, active: 'pen' })).toBe('ignore');
     expect(routePointerDown('pen', p, { ...idle, active: 'mouse' })).toBe('ignore');
+  });
+});
+
+describe('palms after the pen lifts', () => {
+  const p = { penOnly: true, touchGestures: true };
+  const at = (x: number) => ({ x, y: 100 });
+  /** Router state as CanvasView builds it: palms are not counted as fingers. */
+  const state = (c: TouchContacts, over: Partial<CanvasPointerState> = {}): CanvasPointerState => ({
+    touches: c.fingers().length,
+    active: null,
+    gesture: false,
+    penNear: false,
+    ...over,
+  });
+
+  it('a palm that lands mid-stroke and stays does not pair with the next contact (S3)', () => {
+    const c = new TouchContacts();
+    c.down(34, at(150));
+    expect(routePointerDown('touch', p, state(c, { active: 'pen' }))).toBe('palm');
+    c.palm(34);
+    // the pen lifts and leaves range; a second contact taps
+    c.down(35, at(190));
+    expect(c.fingers().map(([id]) => id)).toEqual([35]);
+    expect(routePointerDown('touch', p, state(c))).toBe('pan');
+    // counting the palm would have made it a two-finger gesture, whose quick tap is undo
+    expect(routePointerDown('touch', p, state(c, { touches: c.size }))).toBe('gesture');
+    c.up(35);
+    c.up(34);
+    expect(c.size).toBe(0);
+    expect(c.isPalm(34)).toBe(false);
+  });
+
+  it('palms the pen took over stay palms when one of them lands again (S5)', () => {
+    const c = new TouchContacts();
+    c.down(37, at(100));
+    expect(routePointerDown('touch', p, state(c))).toBe('pan');
+    c.down(38, at(140));
+    expect(routePointerDown('touch', p, state(c, { active: 'touch' }))).toBe('gesture');
+    expect(routePointerDown('pen', p, state(c, { gesture: true }))).toBe('preempt');
+    // the pen is accepted: every contact on the canvas becomes a palm
+    c.allPalms();
+    expect(c.fingers()).toEqual([]);
+    // the pen lifts and leaves; one palm lifts and lands again
+    c.up(38);
+    c.down(39, at(142));
+    expect(c.fingers().map(([id]) => id)).toEqual([39]);
+    expect(routePointerDown('touch', p, state(c))).toBe('pan');
+    expect(c.move(37, at(90))).toBe(true);
+    expect(c.isPalm(37)).toBe(true);
+    expect(c.move(99, at(90))).toBe(false);
+  });
+});
+
+describe('pen proximity', () => {
+  it('is near after a pen event until the timeout or until the pen leaves', () => {
+    const pen = new PenProximity(500);
+    expect(pen.near(0)).toBe(false);
+    pen.seen(1000);
+    expect(pen.near(1000)).toBe(true);
+    expect(pen.near(1500)).toBe(true);
+    expect(pen.near(1501)).toBe(false);
+    pen.seen(2000);
+    pen.left();
+    expect(pen.near(2001)).toBe(false);
+    pen.seen(3000);
+    expect(pen.near(3100)).toBe(true);
+  });
+
+  it('defaults to the documented timeout', () => {
+    const pen = new PenProximity();
+    pen.seen(0);
+    expect(pen.near(PEN_NEAR_TIMEOUT)).toBe(true);
+    expect(pen.near(PEN_NEAR_TIMEOUT + 1)).toBe(false);
   });
 });

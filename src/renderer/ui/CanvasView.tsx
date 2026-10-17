@@ -6,7 +6,7 @@ import { getPrefs, usePrefs, type ButtonAction } from '../state/preferences';
 import { useUi, type ToolId } from '../state/ui';
 import { useInput } from '../state/input';
 import { coalesced, normalizePointer } from '../input/normalize';
-import { routePointerDown } from '../input/routing';
+import { PALM_SLOP, PenProximity, routePointerDown, TouchContacts } from '../input/routing';
 import { invert, apply, type Point } from '../engine/geometry';
 import { fitView, rotateAt, viewMatrix, zoomAt, type ViewState } from '../engine/view';
 import { canvasViewport, setRedrawHandler } from '../app/actions';
@@ -42,10 +42,18 @@ interface ActivePointer {
   pointerType: string;
   startTime: number;
   temp: boolean;
+  /** Client position at pointerdown. */
+  from: Point;
+  /** Movement (px) before moves reach the tool; 0 once it has been passed. */
+  slop: number;
 }
 
 interface Gesture {
   ids: [number, number];
+  /** Client positions of both fingers at the start. */
+  p0: [Point, Point];
+  /** Movement (px) a finger needs before the gesture moves the view; 0 once passed. */
+  slop: number;
   c0: Point;
   d0: number;
   a0: number;
@@ -60,7 +68,8 @@ export const heldKeys = { space: false, alt: false, shift: false, ctrl: false };
 class CanvasController {
   renderer: CanvasRenderer;
   private active: ActivePointer | null = null;
-  private touches = new Map<number, Point>();
+  private contacts = new TouchContacts();
+  private pen = new PenProximity();
   private gesture: Gesture | null = null;
   private rect: DOMRect;
   private matrixInv: [number, number, number, number, number, number] | null = null;
@@ -96,13 +105,22 @@ class CanvasController {
     on('pointerup', (e) => this.onUp(e, false));
     on('pointercancel', (e) => this.onUp(e, true));
     on('lostpointercapture', (e) => this.onLost(e));
-    on('pointerleave', () => {
+    on('pointerleave', (e) => {
+      if (!this.drivesHover(e)) return;
       useUi.setState({ pointer: { ...useUi.getState().pointer, inside: false } });
       this.renderer.requestDraw();
     });
-    on('pointerenter', () => {
+    on('pointerenter', (e) => {
+      if (!this.drivesHover(e)) return;
       useUi.setState({ pointer: { ...useUi.getState().pointer, inside: true } });
     });
+    // pen proximity anywhere in the window, captured before the canvas sees the event
+    const onPen = (e: PointerEvent) => this.onPen(e);
+    const penTypes = ['pointerover', 'pointermove', 'pointerdown', 'pointerup', 'pointerout'] as const;
+    for (const type of penTypes) {
+      window.addEventListener(type, onPen, true);
+      this.disposers.push(() => window.removeEventListener(type, onPen, true));
+    }
     on('wheel', (e) => this.onWheel(e), { passive: false });
     on('contextmenu', (e) => e.preventDefault());
     on('dblclick', (e) => {
@@ -202,12 +220,18 @@ class CanvasController {
     }
     this.updateRect();
     const prefs = getPrefs();
-    if (e.pointerType === 'touch') this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const touch = e.pointerType === 'touch';
+    if (touch) this.contacts.down(e.pointerId, { x: e.clientX, y: e.clientY });
     const route = routePointerDown(e.pointerType, prefs.input, {
-      touches: this.touches.size,
+      touches: this.contacts.fingers().length,
       active: this.active?.pointerType ?? null,
       gesture: this.gesture !== null,
+      penNear: this.pen.near(e.timeStamp),
     });
+    if (route === 'palm') {
+      this.contacts.palm(e.pointerId);
+      return;
+    }
     if (route === 'gesture') {
       // a second finger turns a fresh touch stroke into a navigation gesture
       if (this.active) {
@@ -216,19 +240,10 @@ class CanvasController {
         else this.active.tool.cancel(this.ctx(session));
         this.active = null;
       }
-      this.startGesture(session);
+      this.startGesture(session, prefs.input.penOnly ? PALM_SLOP : 0);
       return;
     }
     if (route === 'ignore') return;
-    if (route === 'preempt') {
-      // resting palms give way to the pen: stop their pan or gesture, without the quick-tap undo
-      if (this.active) this.active.tool.cancel(this.ctx(session));
-      this.active = null;
-      if (this.gesture) {
-        this.gesture = null;
-        useDocs.getState().bump();
-      }
-    }
     e.preventDefault();
     this.canvas.focus({ preventScroll: true });
 
@@ -237,7 +252,11 @@ class CanvasController {
     const action = this.buttonAction(e);
     if (action) {
       const handled = this.runButtonAction(action, e);
-      if (handled === 'done') return;
+      if (handled === 'done') {
+        // the pen or mouse acted (undo, Orbit...): resting palms give way to it
+        if (route === 'preempt') this.palmsGiveWay();
+        return;
+      }
       if (handled) {
         toolId = handled;
         temp = true;
@@ -270,15 +289,29 @@ class CanvasController {
     } catch {
       // pointer may already be gone
     }
+    // one instance per tool: a touch pan must let go of the pan tool before the pen takes it
+    if (route === 'preempt' && this.active?.tool === tool) this.palmsGiveWay();
     if (!tool.down(p, this.ctx(session))) {
       try {
         this.canvas.releasePointerCapture(e.pointerId);
       } catch {
         // ignore
       }
+      // a refused pen or mouse (locked layer) leaves touch navigation running
       return;
     }
-    this.active = { id: e.pointerId, tool, pointerType: e.pointerType, startTime: e.timeStamp, temp };
+    // touches on the canvas when a pen or mouse stroke starts are palms; a touch pan or gesture stops
+    if (!touch) this.palmsGiveWay();
+    this.active = {
+      id: e.pointerId,
+      tool,
+      pointerType: e.pointerType,
+      startTime: e.timeStamp,
+      temp,
+      from: { x: e.clientX, y: e.clientY },
+      // pen-only touch navigation waits until the contact clearly moves: a settling palm does not
+      slop: route === 'pan' ? PALM_SLOP : 0,
+    };
     this.canvas.style.cursor = tool.cursor?.(this.ctx(session)) ?? 'crosshair';
     this.renderer.requestDraw();
   }
@@ -319,31 +352,75 @@ class CanvasController {
     }
   }
 
+  /** Pen proximity, from pen events anywhere in the window (capture phase, before the canvas). */
+  private onPen(e: PointerEvent) {
+    if (e.pointerType !== 'pen') return;
+    if (e.type === 'pointerout') {
+      // no related target: the pen left hover range (or the window), not just this element
+      if (e.relatedTarget === null) this.pen.left();
+      return;
+    }
+    this.pen.seen(e.timeStamp);
+    // tip or eraser not in contact: the pen hovers, so the hand holding it is coming down
+    const hover = e.type === 'pointermove' && (e.buttons & (1 | 32)) === 0;
+    if (hover && getPrefs().input.penOnly) this.palmsGiveWay();
+  }
+
+  /** Touches on the canvas become palms; a touch pan or gesture stops without the quick-tap undo. */
+  private palmsGiveWay() {
+    this.contacts.allPalms();
+    const a = this.active;
+    if (a?.pointerType === 'touch') {
+      // the canvas keeps the palm's pointer capture, so its pointerup still arrives here and clears it
+      this.active = null;
+      const session = activeSession();
+      if (session) a.tool.cancel(this.ctx(session));
+      this.updateCursor(session);
+    }
+    if (this.gesture) {
+      this.gesture = null;
+      useDocs.getState().bump();
+    }
+  }
+
+  /** Whether a pointer drives the brush outline, puck position and tool hover. */
+  private drivesHover(e: PointerEvent) {
+    if (e.pointerType !== 'touch') return true;
+    // in pen-only mode fingers never paint; palms never count
+    if (getPrefs().input.penOnly || this.contacts.isPalm(e.pointerId)) return false;
+    return !this.active || this.active.id === e.pointerId;
+  }
+
   private onMove(e: PointerEvent) {
     const session = activeSession();
     const sx = e.clientX - this.rect.left;
     const sy = e.clientY - this.rect.top;
-    useUi.setState({ pointer: { x: sx, y: sy, inside: true } });
+    const hover = this.drivesHover(e);
+    if (hover) useUi.setState({ pointer: { x: sx, y: sy, inside: true } });
     const list = coalesced(e);
     if (useInput.getState().listening)
       useInput.getState().report(normalizePointer(e, getPrefs().input, e.buttons !== 0), e, list.length);
     if (!session) return;
-    if (e.pointerType === 'touch' && this.touches.has(e.pointerId)) {
-      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (this.gesture) {
-        this.updateGesture(session);
-        return;
-      }
+    const touch = e.pointerType === 'touch';
+    if (touch && this.contacts.move(e.pointerId, { x: e.clientX, y: e.clientY }) && this.gesture) {
+      this.updateGesture(session);
+      return;
     }
     if (this.active && e.pointerId === this.active.id) {
+      const a = this.active;
+      if (a.slop) {
+        if (Math.hypot(e.clientX - a.from.x, e.clientY - a.from.y) < a.slop) return;
+        // past the slop the view catches up with the finger
+        a.slop = 0;
+      }
       const inv = invert(
         viewMatrix(session.view, this.renderer.viewport, session.doc.width, session.doc.height),
       );
       const samples = list.map((ce) => this.toPointer(ce, session, inv));
-      this.active.tool.move(samples, this.ctx(session));
+      a.tool.move(samples, this.ctx(session));
       return;
     }
-    if (!this.active) {
+    if (!this.active && hover) {
       const tool = getTool(useUi.getState().tool);
       if (tool.hover) tool.hover(this.toPointer(e, session), this.ctx(session));
       else this.renderer.requestDraw();
@@ -367,9 +444,11 @@ class CanvasController {
 
   private onUp(e: PointerEvent, cancelled: boolean) {
     if (e.pointerType === 'touch') {
-      this.touches.delete(e.pointerId);
+      const palm = this.contacts.isPalm(e.pointerId);
+      this.contacts.up(e.pointerId);
+      if (palm) return;
       if (this.gesture) {
-        if (this.touches.size < 2) this.endGesture(e.timeStamp);
+        if (this.contacts.fingers().length < 2) this.endGesture(e.timeStamp, cancelled);
         return;
       }
     }
@@ -405,11 +484,13 @@ class CanvasController {
     this.active = null;
   }
 
-  private startGesture(session: DocumentSession) {
-    const [a, b] = [...this.touches.entries()];
+  private startGesture(session: DocumentSession, slop: number) {
+    const [a, b] = this.contacts.fingers();
     const c0 = { x: (a[1].x + b[1].x) / 2 - this.rect.left, y: (a[1].y + b[1].y) / 2 - this.rect.top };
     this.gesture = {
       ids: [a[0], b[0]],
+      p0: [a[1], b[1]],
+      slop,
       c0,
       d0: Math.max(1, Math.hypot(a[1].x - b[1].x, a[1].y - b[1].y)),
       a0: Math.atan2(b[1].y - a[1].y, b[1].x - a[1].x),
@@ -421,13 +502,22 @@ class CanvasController {
 
   private updateGesture(session: DocumentSession) {
     const g = this.gesture!;
-    const a = this.touches.get(g.ids[0]);
-    const b = this.touches.get(g.ids[1]);
+    const a = this.contacts.get(g.ids[0]);
+    const b = this.contacts.get(g.ids[1]);
     if (!a || !b) return;
     const c = { x: (a.x + b.x) / 2 - this.rect.left, y: (a.y + b.y) / 2 - this.rect.top };
     const d = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
     const ang = Math.atan2(b.y - a.y, b.x - a.x);
     if (Math.abs(d - g.d0) > 6 || Math.hypot(c.x - g.c0.x, c.y - g.c0.y) > 6) g.moved = true;
+    if (g.slop) {
+      const far = Math.max(
+        Math.hypot(a.x - g.p0[0].x, a.y - g.p0[0].y),
+        Math.hypot(b.x - g.p0[1].x, b.y - g.p0[1].y),
+      );
+      if (far < g.slop) return;
+      // past the slop the view catches up with the fingers
+      g.slop = 0;
+    }
     const doc = session.doc;
     const vp = this.renderer.viewport;
     let v = zoomAt(g.view0, vp, doc.width, doc.height, g.view0.zoom * (d / g.d0), g.c0);
@@ -437,12 +527,12 @@ class CanvasController {
     this.renderer.requestDraw();
   }
 
-  private endGesture(time: number) {
+  private endGesture(time: number, cancelled: boolean) {
     const g = this.gesture;
     this.gesture = null;
     if (!g) return;
-    // quick two-finger tap = undo
-    if (!g.moved && time - g.start < 260) runCommand('edit.undo');
+    // quick two-finger tap = undo; a cancelled contact (Windows palm rejection) is no tap
+    if (!cancelled && !g.moved && time - g.start < 260) runCommand('edit.undo');
     useDocs.getState().bump();
   }
 
