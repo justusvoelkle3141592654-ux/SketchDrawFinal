@@ -33,8 +33,8 @@ try {
 
   await page.waitForSelector('[data-ready=true]', { timeout: 60_000 });
   console.log('WebView:', await page.evaluate(() => navigator.userAgent));
-  await page.tap('[data-testid=start-new]');
-  await page.tap('[data-testid=new-doc-create]');
+  await page.click('[data-testid=start-new]');
+  await page.click('[data-testid=new-doc-create]');
   await page.waitForSelector('[data-testid=doc-tab]');
   await page.waitForTimeout(1000);
   writeFileSync(join(out, '1-new-canvas.png'), await device.screenshot());
