@@ -21,7 +21,8 @@
     "test:e2e": "npm run build && node scripts/run-e2e.mjs",
     "package:win": "npm run build && electron-builder --win --x64 --publish never",
     "package:linux-dir": "npm run build && electron-builder --linux dir --x64 --publish never",
-    "perf": "vitest run --config vitest.perf.config.ts"
+    "perf": "vitest run --config vitest.perf.config.ts",
+    "package:linux-appimage": "npm run build && electron-builder --linux AppImage --x64 --publish never"
   },
   "dependencies": {
     "fflate": "0.8.3",

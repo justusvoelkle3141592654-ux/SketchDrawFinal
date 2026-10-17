@@ -48,5 +48,17 @@ nsis:
 portable:
   artifactName: Canvas Forge ${version} Portable.${ext}
 linux:
-  target: dir
+  target:
+    - AppImage
+    - dir
   category: Graphics
+
+appImage:
+  artifactName: Canvas-Forge-${version}-linux-${arch}.${ext}
+  compression: zstd
+
+  # Optional: use the newer AppImage runtime toolset
+toolsets:
+  appimage: "1.0.3"
+
+
