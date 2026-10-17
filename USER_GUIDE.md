@@ -22,11 +22,12 @@
 
 * **New** (`Ctrl+N`): choose a preset or custom size, resolution and background (white, transparent or a colour). The dialog estimates memory and warns about very large canvases.
 * **Open** (`Ctrl+O`): `.cforge` documents, or PNG/JPEG/WebP images (opened as a new document).
-* **Save** (`Ctrl+S`) / **Save as** (`Ctrl+Shift+S`): `.cforge` keeps all layers, groups, masks, blend modes and settings. Saving is atomic — if something goes wrong, the previous file stays intact.
+* **Save** (`Ctrl+S`) / **Save as** (`Ctrl+Shift+S`): `.cforge` keeps all layers, groups, masks, blend modes and settings, the brushes you painted with and the palette you picked while the document was active. Saving is atomic — if something goes wrong, the previous file stays intact.
+* Opening a document whose palette is not in your library adds that palette to the Palettes panel (a palette you already have is never replaced or duplicated). Picking a palette does not mark the document as unsaved; the new choice is stored the next time you save.
 * **Import image as layer** (`Ctrl+Shift+O`) or drag images onto the window. Larger images can be scaled to fit or placed at full size.
 * **Export** (`Ctrl+Shift+E`): PNG (lossless, keeps transparency), JPEG or WebP with quality and scale options. The file name template is set in Preferences → Files & memory.
 * **Recent files** appear on the start screen.
-* **Recovery**: while you work, recovery snapshots of unsaved documents are written every few minutes (configurable). If Canvas Forge closes unexpectedly, it offers to recover them on the next start.
+* **Recovery**: while you work, recovery snapshots of unsaved documents are written every few minutes (configurable). If Canvas Forge closes unexpectedly, it offers to recover them on the next start. A recovered document comes back complete: layers, guides and assists, reference images, time-lapse frames, animation settings, stored brushes and palette.
 
 ## Drawing
 
@@ -77,7 +78,7 @@
 * Command search or shortcuts: rotate the canvas 90°/180°, flip the canvas, crop to selection, **Image size** (`Ctrl+Alt+I`, resamples every layer) and **Canvas size** (`Ctrl+Alt+C`, adds or removes space around the artwork with an anchor).
 * **Crop** `C`: drag a frame (or drag the whole-canvas frame's handles), choose Free / 1:1 / Original ratio, press Enter or *Crop*. Esc resets the frame.
 * Layer flips are in the command search (*Flip layer horizontally/vertically*).
-* Adjustments change the pixels of the active layer, inside the selection if there is one: **Brightness / contrast** (`Ctrl+Alt+B`) and **Hue / saturation** (`Ctrl+U`) with a live preview, **Greyscale** (`Ctrl+Shift+U`) and **Invert** (`Ctrl+I`). Everything can be undone.
+* Adjustments are destructive — they change the pixels of the active layer, inside the selection if there is one — and are labelled *(destructive)* in the command search: **Brightness / contrast** (`Ctrl+Alt+B`) and **Hue / saturation** (`Ctrl+U`) with a live preview and a warning in the dialog, **Greyscale** (`Ctrl+Shift+U`) and **Invert** (`Ctrl+I`), which show a notice after running. Undo (`Ctrl+Z`) reverts every adjustment.
 
 ## Drawing assists
 
@@ -119,8 +120,8 @@ The **Reference** panel (`F9`, or *Add reference image…* in the command search
 
 * Mouse wheel zooms at the pointer; two-finger touchpad scroll pans; `Alt`+wheel rotates.
 * Hold `Space` and drag to pan, `Space+Shift` to rotate, `Space+Ctrl` to zoom.
-* Touch: two fingers pan, pinch to zoom, twist to rotate; a quick two-finger tap undoes.
-* `Ctrl+0` fit, `Ctrl+1` 100 %, `Ctrl+=` / `Ctrl+-` zoom steps, `Ctrl+Alt+[` / `]` rotate 15°, `Shift+R` reset rotation, `H` mirror the view (pixels are not changed).
+* Touch: two fingers pan, pinch to zoom, twist to rotate; a quick two-finger tap undoes. Touches that land while a pen or mouse stroke is in progress are ignored.
+* `Ctrl+0` fit, `Ctrl+1` 100 %, `Ctrl+=` / `Ctrl+-` zoom steps, `Ctrl+Alt+[` / `]` rotate 15°, `Shift+R` reset rotation, `H` mirror the view horizontally, `Shift+H` vertically (pixels are not changed; the status bar shows *mirrored H*, *V* or *H+V*).
 * Navigation puck (`Shift+S`): drag the centre to pan, the ring to rotate (Shift snaps to 15°), the small pill to zoom.
 * From 800 % a pixel grid is shown (can be turned off).
 
@@ -142,7 +143,7 @@ Orbit is Canvas Forge's radial quick menu with eight configurable segments (Pref
 ## Preferences (`Ctrl+,`)
 
 * **General & workspace**: theme (graphite dark / light), density (compact or roomy for touch), left-handed layout, hide panels while drawing, brush outline, pixel grid.
-* **Input & Tablet**: pressure, tilt, barrel buttons, eraser tip and touch gestures on/off; pen-only canvas (fingers never paint); pressure curve with draggable points (double-click adds, right-click removes; Soft/Linear/Firm presets) and a live preview stroke; pressure threshold; fixed pressure for mice; button mappings; live diagnostics with a test area.
+* **Input & Tablet**: pressure, tilt, barrel buttons, eraser tip and touch gestures on/off; pen-only canvas (fingers never paint; a palm resting on the screen stops panning or zooming as soon as the pen touches down, and touches during a pen stroke are ignored); pressure curve with draggable points (double-click adds, right-click removes; Soft/Linear/Firm presets) and a live preview stroke; pressure threshold; fixed pressure for mice; button mappings; live diagnostics with a test area.
 * **Strokes**: stabiliser and predictive stroke defaults.
 * **Orbit**: segment commands.
 * **Keyboard shortcuts**: search, click *Change* and press new keys (Backspace clears, Esc cancels); conflicts are moved automatically.

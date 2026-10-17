@@ -8,7 +8,9 @@
 | Preload (sandboxed) | `src/preload/preload.ts` | Exposes `window.forge` (typed in `src/shared/ipc.ts`) through `contextBridge`. Nothing else crosses the boundary. |
 | Renderer | `src/renderer/` | React UI, Zustand stores, pixel engine, view renderer, input pipeline, tools. |
 
-Security settings: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `webSecurity: true`, navigation and new windows blocked, all permission requests denied, production CSP injected at build time (`vite.config.ts`). The main process validates every IPC argument. A renderer can only write to paths that a native dialog returned, that are in the recent list, or that the user dropped onto the window (`.cforge` only).
+Security settings: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `webSecurity: true`, navigation and new windows blocked, all permission requests denied, production CSP injected at build time (`vite.config.ts`). The main process validates every IPC argument and accepts IPC only from the main window's top frame while it shows the app's own page (the built `dist/renderer/index.html`, loaded with a `pathToFileURL`-encoded URL so install folders with `%`, `#`, spaces or non-ASCII characters work, or the Vite dev-server origin in development); calls from any other window, frame or page are rejected (`invoke`) or ignored (`send`). The URL check lives in the Electron-free `src/main/ipc-guard.ts`.
+
+Path grants: the renderer can re-read or save without a dialog only paths the user chose in a native dialog, paths in the recent list, `.cforge` files the user dropped onto the window (the preload reads the path from the dropped `File` with `webUtils.getPathForFile`, so page script cannot grant an arbitrary path) and files opened by the OS. Saving without a dialog writes only to a granted `.cforge`; images, palettes and brush packs opened through a dialog are never overwritten. A recovery snapshot keeps its original path only if it was a granted `.cforge` when written, and only such paths are re-granted on recovery.
 
 ## Renderer layout
 

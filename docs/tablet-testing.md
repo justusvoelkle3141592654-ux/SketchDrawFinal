@@ -8,6 +8,8 @@ Canvas Forge reads pens through **Windows Ink**, which Chromium (inside Electron
 |---|---|
 | Mouse (X11 under Xvfb, Linux build host) | Automated E2E: drawing, undo/redo, save/open/export (`tests/e2e/smoke.spec.ts`) |
 | Synthetic pen samples (pressure, tilt, twist, coalesced batches) | Unit tests of normalisation-independent pipeline parts (`tests/unit/pipeline.test.ts`, `engine.test.ts`) |
+| Pointer normalisation, pressure curve and dead zone, coalesced-events fallback, canvas routing | Unit tests (`tests/unit/input.test.ts`) |
+| Synthetic pen and touch events in the running app (pen-only canvas, palms during a pen stroke, palms resting before the pen, diagnostics) | Automated E2E (`tests/e2e/input.spec.ts`) — synthetic events, not real hardware |
 | Wacom (Intuos/Cintiq/One) | **Not tested** — no hardware available |
 | Huion | **Not tested** |
 | XP-Pen | **Not tested** |
@@ -19,7 +21,7 @@ Fill in the table below on real hardware and keep the results in this file.
 
 ## Preparation
 
-1. Install the Windows build (`release/Canvas Forge Setup <version>.exe`) or start the portable `.exe`.
+1. Install the Windows build with `installer/Canvas Forge Setup <version>.exe` (see `installer/README.md`).
 2. Open **Preferences → Input & Tablet** (Ctrl+, then the "Input & Tablet" tab). Keep it open in a second step to read the diagnostics.
 3. Note driver name/version, Windows version, display scaling (100/125/150/200 %), and whether Windows Ink is on.
 
@@ -46,6 +48,8 @@ Fill in the table below on real hardware and keep the results in this file.
 | 17 | Quick two-finger tap | Undo | |
 | 18 | Start a stroke with one finger and add a second finger quickly | The short finger stroke is discarded; navigation starts | |
 | 19 | Rest the palm while drawing with pen-only off | Note any unwanted marks (palm rejection then depends on the driver/Windows) | |
+| 19a | Pen-only on: rest the palm on the screen first, then draw with the pen | The palm may move the view until the pen touches down; then the pen draws and the palm no longer pans, zooms or undoes | |
+| 19b | Pen-only on: tap two palms on the screen while drawing | No undo, no view change; the stroke continues | |
 | 20 | Repeat 7–8 at 125 %, 150 % and 200 % display scaling | Stroke stays under the pen tip; brush outline matches | |
 | 21 | Move the window between monitors with different scaling | Canvas stays sharp; cursor alignment stays correct | |
 | 22 | Hold Space and drag with the pen | Pans | |

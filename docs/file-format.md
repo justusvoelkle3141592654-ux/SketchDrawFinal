@@ -51,12 +51,15 @@ resources/<name>         additional resources (e.g. time-lapse frames) (optional
 | `selection` | `{ tiles: [tx, ty][] }` \| null | |
 | `view` | `{ zoom, rotation, panX, panY, flipX, flipY }` \| null | last view |
 | `features` | object | assists (symmetry, ruler, ellipse, perspective, grid), reference images, animation, time-lapse settings |
+| `palette` | `{ id, name, colors: "#RRGGBB"[] }` \| null | optional; palette in use with the document (see below) |
 
 `features.references` lists the reference images shown in the Reference panel: `[{ "id": "ref…", "name": "photo.jpg", "file": "references/ref….jpg", "width": 1200, "height": 800 }]`. Entries whose resource file is missing are ignored. Reference images are never composited into the artwork or exports.
 
 `features.animation` (flipbook): `{ "enabled": true, "fps": 12, "loop": true, "holdBackground": false, "holdForeground": false, "onion": { "enabled": true, "before": 1, "after": 1, "opacity": 0.4, "tint": true }, "exposures": { "<top-level layer id>": 2 } }`. Frames are the top-level nodes of `layers` (bottom → top), minus the held background/foreground. Missing or invalid values fall back to defaults; `fps` is 1–60, exposures 1–48.
 
 `features.timelapse`: `{ "recording": true, "interval": 1200 }` (minimum milliseconds between snapshots; it doubles when old snapshots are thinned out).
+
+`palette` (optional): the palette in use with the document, `{ "id": "P…", "name": "Studio", "colors": ["#RRGGBB", …] }` or `null` (id up to 64 characters, name up to 80, at most 512 colours; invalid colours are dropped). Files without it open normally and the format version stays 1. On open, a palette whose id is not in the user's library is added to it; an existing palette with that id is never replaced or duplicated, and the active palette is not switched. An unreadable entry is skipped with a warning.
 
 Raster layer:
 
