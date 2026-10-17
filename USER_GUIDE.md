@@ -4,7 +4,7 @@
 
 | Area | Purpose |
 |---|---|
-| Title bar | Open documents as tabs. A teal dot marks unsaved changes. Middle-click or × closes a tab (you are asked about unsaved changes). |
+| Title bar | Open documents as tabs. A blue dot marks unsaved changes. Middle-click or × closes a tab (you are asked about unsaved changes). |
 | Command bar | Command search (☰), document, history, navigation, selection/transform, assists, drawing modes, panel toggles and Focus Canvas. Hover any button for its name and shortcut. In a narrow window, the groups that do not fit move into the ⋯ *More commands* menu at the end. |
 | Tool options | A slim strip at the top of the canvas with the settings of the active tool (brush size, selection mode, tolerance, transform values, text font…). |
 | Tool rail (left) | Drawing, fill, selection, transform, shape, text and navigation tools, plus foreground/background colours. Buttons with a small corner mark hold a group (selection, shapes, navigation): click uses the last tool of the group; right-click, press and hold, or press → (← in left-handed layout) to choose another. |

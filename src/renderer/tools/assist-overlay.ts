@@ -49,7 +49,7 @@ export function drawAssistOverlay(c: CanvasRenderingContext2D, info: OverlayInfo
       c.moveTo(p.x, p.y);
       c.lineTo(q.x, q.y);
     };
-    const accent = 'rgba(139, 110, 240, 0.95)';
+    const accent = 'rgba(111, 149, 247, 0.95)';
     if (sym.mode === 'vertical' || sym.mode === 'both') dashed(c, () => line(Math.PI / 2), accent);
     if (sym.mode === 'horizontal' || sym.mode === 'both') dashed(c, () => line(0), accent);
     if (sym.mode === 'radial' || sym.mode === 'kaleido') {

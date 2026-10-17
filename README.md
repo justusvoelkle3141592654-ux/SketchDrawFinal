@@ -1,10 +1,12 @@
 # Canvas Forge
 
-**A tablet-native digital sketchbook with deep brush control and a calm, modern workspace.**
+**Raster drawing and painting for pen tablets.**
 
 Canvas Forge is an offline raster drawing and painting application for Windows 11, built with Electron, React and TypeScript on an original tiled pixel engine. No account, no telemetry, no network access; artwork stays on your computer.
 
 > Status and verified results: see [PROGRESS.md](PROGRESS.md). User documentation: [USER_GUIDE.md](USER_GUIDE.md).
+
+![Canvas Forge workspace](docs/screenshots/workspace.png)
 
 ## Install (Windows)
 
@@ -52,6 +54,12 @@ docs/           architecture, file format, performance, tablet testing
 build/          original icon sources and generated icons
 reference/ui/   third-party reference screenshots (research only, never packaged)
 ```
+
+## Screenshots
+
+| Start | New canvas | Brush Lab |
+|---|---|---|
+| ![Start screen](docs/screenshots/start-screen.png) | ![New canvas dialog](docs/screenshots/new-canvas.png) | ![Brush Lab](docs/screenshots/brush-lab.png) |
 
 ## Documentation
 

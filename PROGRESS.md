@@ -205,3 +205,21 @@ Also changed: the main window now shows itself after 4 s even if the first paint
 | `npx prettier --check .` | clean |
 | `npm run package:linux-appimage` | `release/Canvas-Forge-0.1.0-linux-x86_64.AppImage` (111 006 011 bytes), no builder warnings |
 | AppImage launch (Xvfb, `APPIMAGE_EXTRACT_AND_RUN=1`, no FUSE in the container) | packaged app (`isPackaged = true`, version 0.1.0), new document, a stroke painted, no page errors |
+
+---
+
+## Visual refresh
+
+* Colour system: neutral grey surfaces without a blue tint; one cobalt accent used only for state (active tool, selection edge, focus, primary buttons, sliders). The teal-to-violet gradient is gone.
+* Selected layers and brushes: neutral highlight with a 2 px accent edge instead of a tinted, outlined box; chips, segmented controls and navigation lists use the same neutral pressed state. Radii reduced to 3/4/6 px.
+* Panel titles and section labels in sentence case instead of spaced capitals.
+* App icon and in-app mark: anvil on a solid cobalt tile (no gradient, no spark); `build/icon.png` and `build/icon.ico` regenerated with `scripts/render-icons.mjs`. The committed `installer/Canvas Forge Setup 0.1.0.exe` was built before this change and still carries the old icon and colours; the next build or release will include the new ones.
+* Start screen: plain two-column layout (Start actions with shortcuts, Recent files) instead of a floating card with a tagline. Marketing tagline replaced by "Raster drawing and painting for pen tablets." in About, README and `package.json`.
+* Screenshots in `docs/screenshots/` (taken under Xvfb on Linux, so the system font differs from Windows' Segoe UI).
+
+| Command | Result |
+|---|---|
+| `npm run lint` / `npm run typecheck` | pass |
+| `npm test` | 180 tests passed |
+| `npm run test:e2e` | 23 tests passed, including the axe-core audit (no contrast or other violations in dark/light, compact/roomy) |
+| `npx prettier --check .` | clean |

@@ -310,7 +310,7 @@ export function AboutDialog() {
         <AppMark size={48} />
         <div>
           <h3>Canvas Forge {info?.version}</h3>
-          <p>A tablet-native digital sketchbook with deep brush control and a calm, modern workspace.</p>
+          <p>Raster drawing and painting for pen tablets.</p>
           <p className="muted">
             Runs fully offline. No account, no telemetry, no network access. Your artwork never leaves this
             computer.
