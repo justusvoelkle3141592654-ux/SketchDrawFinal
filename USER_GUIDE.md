@@ -120,7 +120,7 @@ The **Reference** panel (`F9`, or *Add reference image…* in the command search
 
 * Mouse wheel zooms at the pointer; two-finger touchpad scroll pans; `Alt`+wheel rotates.
 * Hold `Space` and drag to pan, `Space+Shift` to rotate, `Space+Ctrl` to zoom.
-* Touch: two fingers pan, pinch to zoom, twist to rotate; a quick two-finger tap undoes. Touches that land while a pen or mouse stroke is in progress are ignored.
+* Touch: two fingers pan, pinch to zoom, twist to rotate; a quick two-finger tap undoes. Touches that land while a pen or mouse stroke is in progress, or rest on the canvas when one starts, are ignored until they are lifted; contacts that Windows cancels as palms never trigger the undo tap.
 * `Ctrl+0` fit, `Ctrl+1` 100 %, `Ctrl+=` / `Ctrl+-` zoom steps, `Ctrl+Alt+[` / `]` rotate 15°, `Shift+R` reset rotation, `H` mirror the view horizontally, `Shift+H` vertically (pixels are not changed; the status bar shows *mirrored H*, *V* or *H+V*).
 * Navigation puck (`Shift+S`): drag the centre to pan, the ring to rotate (Shift snaps to 15°), the small pill to zoom.
 * From 800 % a pixel grid is shown (can be turned off).
@@ -143,7 +143,7 @@ Orbit is Canvas Forge's radial quick menu with eight configurable segments (Pref
 ## Preferences (`Ctrl+,`)
 
 * **General & workspace**: theme (graphite dark / light), density (compact or roomy for touch), left-handed layout, hide panels while drawing, brush outline, pixel grid.
-* **Input & Tablet**: pressure, tilt, barrel buttons, eraser tip and touch gestures on/off; pen-only canvas (fingers never paint; a palm resting on the screen stops panning or zooming as soon as the pen touches down, and touches during a pen stroke are ignored); pressure curve with draggable points (double-click adds, right-click removes; Soft/Linear/Firm presets) and a live preview stroke; pressure threshold; fixed pressure for mice; button mappings; live diagnostics with a test area.
+* **Input & Tablet**: pressure, tilt, barrel buttons, eraser tip and touch gestures on/off; pen-only canvas (fingers never paint: one finger pans, two fingers pan, pinch and rotate, a quick two-finger tap undoes. While the pen hovers near the screen or draws, touches on the canvas count as the drawing hand and are ignored until lifted; touch navigation works again when the pen leaves hover range, or half a second after its last signal. Touch navigation starts only after a finger has moved about 24 screen pixels, so a resting palm that settles slightly does not move the view); pressure curve with draggable points (double-click adds, right-click removes; Soft/Linear/Firm presets) and a live preview stroke; pressure threshold; fixed pressure for mice; button mappings; live diagnostics with a test area.
 * **Strokes**: stabiliser and predictive stroke defaults.
 * **Orbit**: segment commands.
 * **Keyboard shortcuts**: search, click *Change* and press new keys (Backspace clears, Esc cancels); conflicts are moved automatically.

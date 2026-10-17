@@ -43,12 +43,15 @@ Fill in the table below on real hardware and keep the results in this file.
 | 12 | Raise **Pressure threshold** to 10 % | Very light touches no longer paint | |
 | 13 | Disable **Pressure** | Strokes use the fixed pressure value | |
 | 14 | Disable **Tilt** with a tilt-sensitive brush (Graphite Soft) | Tilt no longer changes the size | |
-| 15 | Turn on **Pen-only canvas**, touch the canvas with a finger | Finger pans instead of painting; panels still respond to touch | |
+| 15 | Turn on **Pen-only canvas**, move the pen out of hover range, then drag a finger on the canvas | Finger pans (after about 24 px of movement) instead of painting; panels still respond to touch | |
 | 16 | Two-finger drag / pinch / twist on the canvas | Pans, zooms around the fingers, rotates the view | |
 | 17 | Quick two-finger tap | Undo | |
 | 18 | Start a stroke with one finger and add a second finger quickly | The short finger stroke is discarded; navigation starts | |
 | 19 | Rest the palm while drawing with pen-only off | Note any unwanted marks (palm rejection then depends on the driver/Windows) | |
-| 19a | Pen-only on: rest the palm on the screen first, then draw with the pen | The palm may move the view until the pen touches down; then the pen draws and the palm no longer pans, zooms or undoes | |
+| 19a | Pen-only on: bring the pen into hover range, rest the palm, then draw | The palm never moves the view or undoes; the pen draws normally | |
+| 19c | Pen-only on: rest the palm with the pen far away, let it settle slightly, then draw | The view does not move for small settling (under about 24 px); once the pen hovers or touches, the palm is ignored until lifted | |
+| 19d | Pen-only on: hover the pen, then try a two-finger pinch with the other hand | Ignored while the pen is in range; works again after the pen leaves range (or about 0.5 s after its last signal) | |
+| 19e | Repeat 19a with a pen that does not report hover, or with Windows Ink off (pen reported as mouse) | Note whether palms move the view before the pen lands — proximity detection needs hover events | |
 | 19b | Pen-only on: tap two palms on the screen while drawing | No undo, no view change; the stroke continues | |
 | 20 | Repeat 7–8 at 125 %, 150 % and 200 % display scaling | Stroke stays under the pen tip; brush outline matches | |
 | 21 | Move the window between monitors with different scaling | Canvas stays sharp; cursor alignment stays correct | |
@@ -60,3 +63,5 @@ Fill in the table below on real hardware and keep the results in this file.
 * Pressure on mice is simulated (fixed value).
 * Tangential pressure (airbrush wheel) and contact size are shown in diagnostics but not mapped to brush dynamics.
 * Hover-only pen events are used for the brush outline; some drivers do not report hover.
+* Palm handling before the pen touches down relies on pen hover events. With pens or drivers that do not report hover, only the 24 px movement threshold and the pen taking over on contact protect against palms.
+* All palm and touch handling has been tested only with synthetic and Chromium-generated events on Linux, not with real Windows touch or pen hardware.
