@@ -5,7 +5,16 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'release', 'node_modules', 'coverage', 'test-results', 'playwright-report', '.e2e-tmp'],
+    ignores: [
+      'android/**',
+      'dist',
+      'release',
+      'node_modules',
+      'coverage',
+      'test-results',
+      'playwright-report',
+      '.e2e-tmp',
+    ],
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

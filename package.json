@@ -24,9 +24,13 @@
     "package:linux-dir": "npm run build && electron-builder --linux dir --x64 --publish never",
     "package:linux-deb": "npm run build && electron-builder --linux deb --x64 --publish never",
     "package:linux-appimage": "npm run build && electron-builder --linux AppImage --x64 --publish never",
+    "android:sync": "vite build && cap sync android",
+    "package:android": "npm run android:sync && cd android && ./gradlew assembleDebug",
     "perf": "vitest run --config vitest.perf.config.ts"
   },
   "dependencies": {
+    "@capacitor/core": "8.5.2",
+    "@capacitor/filesystem": "8.1.4",
     "fflate": "0.8.3",
     "gifenc": "1.0.3",
     "react": "19.3.0",
@@ -34,6 +38,8 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/cli": "8.5.2",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.56.1",
     "@types/node": "24.19.0",

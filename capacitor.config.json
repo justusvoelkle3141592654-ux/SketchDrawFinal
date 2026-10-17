@@ -1,0 +1,11 @@
+{
+  "appId": "app.canvasforge",
+  "appName": "Canvas Forge",
+  "webDir": "dist/renderer",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "backgroundColor": "#1e1e1e"
+}

@@ -19,9 +19,12 @@ Canvas Forge is installed like any other desktop app; there is no portable or "r
 | System | File | Install | Uninstall |
 |---|---|---|---|
 | Windows 10/11 x64 | `Canvas Forge Setup <version>.exe` (artifact `Canvas-Forge-Windows-Installer`) | Run it, choose *only for me* or *all users*. Adds a Start menu entry, an optional desktop shortcut and the `.cforge` file association. The installer is not code-signed, so SmartScreen may warn: **More info** → **Run anyway**. | Settings → Apps → Canvas Forge → Uninstall |
+| Android 7 or newer (tablet with pen recommended) | `canvas-forge-<version>.apk` (artifact `Canvas-Forge-Android-APK`) | Download it on the device and open it; Android asks once to allow installs from the browser or file manager. Documents are saved in *Documents/Canvas Forge*, exports in *Documents/Canvas Forge/Exports*. | Hold the app icon → App info → Uninstall |
 | Ubuntu / Debian x64 | `canvas-forge_<version>_amd64.deb` (artifact `Canvas-Forge-Linux-deb`) | Open it with the software installer, or `sudo apt install ./canvas-forge_<version>_amd64.deb`. Adds Canvas Forge to the application menu. | `sudo apt remove canvas-forge` |
 
-macOS is not built.
+macOS and iOS are not built.
+
+**Android notes:** the APK is the same interface in an Android WebView (Capacitor), made for tablets; on phones the panels start hidden and open from the command bar. Saving asks for a name and writes to *Documents/Canvas Forge*; documents there appear under *Recent files*. Without the optional signing secrets (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`) the APK is signed with a debug key of the build machine, so a newer APK may have to be installed after uninstalling the old one (documents in *Documents/Canvas Forge* stay).
 
 ## Requirements
 
@@ -44,11 +47,12 @@ macOS is not built.
 | `npm run package:win` | Windows NSIS installer into `release/` (on Linux this needs Wine, including 32-bit support, for the NSIS uninstaller stub and the executable's icon/version resources; on Windows no extra tools are needed) |
 | `npm run package:linux-dir` | Unpacked Linux build (used to launch-test the packaged app on Linux) |
 | `npm run package:linux-deb` | Linux `.deb` installer package (x64) into `release/` |
+| `npm run package:android` | Debug APK into `android/app/build/outputs/apk/debug/` (needs JDK 21 and the Android SDK with platform 36; set `ANDROID_HOME` or `android/local.properties`) |
 | `npm run package:linux-appimage` | Linux AppImage (x64) into `release/` (not published by CI) |
 
 ## Builds and releases
 
-`.github/workflows/build.yml` runs on every push, on pull requests and from the **Run workflow** button: lint, typecheck and unit tests, then the Windows installer on a Windows runner and the `.deb` on Linux (installed, checked and removed again on the runner). Both are attached to the run as artifacts. Pushing a tag such as `v1.0.3` (or `v1.0.3-beta.1`) additionally sets the version from the tag and publishes both installers as a GitHub Release (tags with a `-` suffix become pre-releases).
+`.github/workflows/build.yml` runs on every push, on pull requests and from the **Run workflow** button: lint, typecheck and unit tests, then the Windows installer on a Windows runner, the `.deb` on Linux (installed, checked and removed again on the runner) and the Android APK (installed and started in an Android 15 emulator, which opens a canvas and draws a stroke). Both are attached to the run as artifacts. Pushing a tag such as `v1.0.3` (or `v1.0.3-beta.1`) additionally sets the version from the tag and publishes the installers and the APK as a GitHub Release (tags with a `-` suffix become pre-releases).
 
 `scripts/render-icons.mjs` regenerates `build/icon.png` and `build/icon.ico` from `build/icon.svg` (needs Playwright's Chromium and ImageMagick).
 

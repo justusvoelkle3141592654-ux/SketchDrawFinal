@@ -239,3 +239,20 @@ Also changed: the main window now shows itself after 4 s even if the first paint
 | Installed app under Xvfb | packaged app starts from `/opt/Canvas Forge`, new document, stroke painted, no page errors |
 | `apt-get remove canvas-forge` | program folder, menu entry and `/usr/bin` link removed |
 | Windows installer | built by the workflow on `windows-latest`; not launched on Windows from this host |
+
+---
+
+## Android APK
+
+* Capacitor 8.5.2 wraps the existing renderer in an Android WebView (`android/`, `capacitor.config.json`). `src/renderer/platform-android.ts` replaces the parts of the browser fallback that do not work in a WebView: saving (name prompt, then `Documents/Canvas Forge/<name>.cforge`; saving again overwrites that file), exports into `Documents/Canvas Forge/Exports`, *Recent files* = the documents in that folder, recovery snapshots in app storage (survive the app being killed). File pickers, clipboard and app settings use the browser fallback.
+* No INTERNET permission; storage permission only up to Android 10 / 12 (read). Version name and code come from `package.json` (1.0.3 → 10003).
+* App icon: adaptive vector icon with the same anvil path, PNGs for Android 7; dark launch screen instead of Capacitor's default splash.
+* Narrow screens (< 760 px, phones in portrait): Colour, Brushes and Layers panels start hidden.
+* CI job `android`: builds the APK (release-signed when the signing secrets exist, otherwise debug-signed), installs it in an Android 15 emulator, creates a canvas, draws a stroke, checks for crashes and console errors, uploads screenshot and logcat.
+
+| Check | Result |
+|---|---|
+| `npm run package:android` (local, JDK 21, SDK platform 36) | `app-debug.apk`, 4.3 MB; `aapt2 dump badging`: package `app.canvasforge`, versionName 1.0.3, versionCode 10003, targetSdk 36, permissions as above |
+| Renderer in Chromium with touch emulation at 1280×800, 800×1280, 915×412, 412×915 | loads, new canvas, no page errors; layout checked on screenshots |
+| `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e` | pass (180 unit, 23 E2E); the desktop app is unaffected |
+| On a real Android device | not tested from this host (no device, no KVM for a local emulator) |
