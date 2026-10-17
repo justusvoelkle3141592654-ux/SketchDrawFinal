@@ -3,7 +3,7 @@ name: Canvas Forge Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   contents: write
@@ -298,4 +298,3 @@ jobs:
           files: |
             artifacts/windows/*.exe
             artifacts/linux/*.AppImage
-

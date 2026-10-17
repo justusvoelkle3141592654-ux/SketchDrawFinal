@@ -30,6 +30,11 @@ The ready-built installer is in [`installer/`](installer/): run `Canvas Forge Se
 | `npm run perf` | Engine benchmarks (prints timings) |
 | `npm run package:win` | Windows NSIS installer + portable `.exe` into `release/` (on Linux this needs Wine, including 32-bit support, for the NSIS uninstaller stub and the executable's icon/version resources; on Windows no extra tools are needed) |
 | `npm run package:linux-dir` | Unpacked Linux build (used to launch-test the packaged app on Linux) |
+| `npm run package:linux-appimage` | Linux AppImage (x64) into `release/` |
+
+## Releases
+
+Pushing a tag such as `v0.2.0` (or `v0.2.0-beta.1`) runs `.github/workflows/release.yml`: it sets the package version from the tag, runs lint, typecheck and unit tests, builds the Windows installer and portable `.exe` on a Windows runner and the AppImage on Linux, checks that all three files exist and publishes them as a GitHub Release (tags with a `-` suffix become pre-releases).
 
 `scripts/render-icons.mjs` regenerates `build/icon.png` and `build/icon.ico` from `build/icon.svg` (needs Playwright's Chromium and ImageMagick).
 

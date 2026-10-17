@@ -52,13 +52,11 @@ linux:
     - AppImage
     - dir
   category: Graphics
-
+  # Name the .desktop entry after package.json's desktopName so it matches the window's WM_CLASS.
+  syncDesktopName: true
 appImage:
   artifactName: Canvas-Forge-${version}-linux-${arch}.${ext}
   compression: zstd
-
-  # Optional: use the newer AppImage runtime toolset
+# Static AppImage runtime (does not depend on the system's libfuse2); also needed for zstd compression.
 toolsets:
-  appimage: "1.0.3"
-
-
+  appimage: '1.0.3'

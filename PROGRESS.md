@@ -188,3 +188,20 @@ Package the Windows build (NSIS installer + portable `.exe`) and launch-test the
 
 Also changed: the main window now shows itself after 4 s even if the first paint is never reported.
 
+---
+
+## Release automation and Linux AppImage
+
+* `.github/workflows/release.yml` (tag `v*`): version from the tag, lint/typecheck/unit tests, Windows installer + portable build on `windows-latest`, AppImage on `ubuntu-latest`, artifact checks, GitHub Release. The workflow itself has not run on GitHub from this host.
+* AppImage: static runtime toolset `1.0.3`, zstd compression; `desktopName` in `package.json` plus `linux.syncDesktopName` so the `.desktop` entry and the window's WM_CLASS match (`StartupWMClass=canvas-forge`).
+* Fixed: after a click with the text tool the text box received focus only after a deferred timer, so keys typed right away went to the canvas and triggered tool shortcuts (e.g. `L` switched to the lasso and discarded the text); a second click while editing did not refocus the box at all. The box is now focused during the render commit. New E2E test covers both cases.
+
+| Command | Result |
+|---|---|
+| `npm run lint` | 0 errors, 0 warnings |
+| `npm run typecheck` | passes |
+| `npm test` | 15 files, 180 tests passed |
+| `npm run test:e2e` | 23 Electron tests passed under Xvfb (3 consecutive full runs green after the focus fix; before it the text-tool test failed reproducibly in the full suite) |
+| `npx prettier --check .` | clean |
+| `npm run package:linux-appimage` | `release/Canvas-Forge-0.1.0-linux-x86_64.AppImage` (111 006 011 bytes), no builder warnings |
+| AppImage launch (Xvfb, `APPIMAGE_EXTRACT_AND_RUN=1`, no FUSE in the container) | packaged app (`isPackaged = true`, version 0.1.0), new document, a stroke painted, no page errors |
