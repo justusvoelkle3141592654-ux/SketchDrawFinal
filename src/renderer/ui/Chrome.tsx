@@ -640,56 +640,54 @@ export function StartScreen() {
   }, []);
   return (
     <div className="start-screen" data-testid="start-screen">
-      <div className="start-card">
-        <div className="start-brand">
-          <AppMark size={44} />
-          <div>
-            <h1>Canvas Forge</h1>
-            <p>A tablet-native digital sketchbook with deep brush control and a calm, modern workspace.</p>
-          </div>
-        </div>
-        <div className="start-actions">
+      <div className="start-layout">
+        <header className="start-brand">
+          <AppMark size={28} />
+          <h1>Canvas Forge</h1>
+        </header>
+        <section className="start-actions" aria-labelledby="start-actions-title">
+          <h2 id="start-actions-title">Start</h2>
           <button
             type="button"
             className="start-action"
             onClick={() => openNewDocumentDialog()}
             data-testid="start-new"
           >
-            <Icon name="new" size={22} />
-            <span>
-              <strong>New canvas</strong>
-              <small>{tooltipFor('file.new')}</small>
-            </span>
+            <Icon name="new" size={18} />
+            <span className="start-action-label">New canvas…</span>
+            <kbd>{shortcutsFor('file.new')[0]}</kbd>
           </button>
           <button type="button" className="start-action" onClick={() => void openDocumentDialog()}>
-            <Icon name="open" size={22} />
-            <span>
-              <strong>Open…</strong>
-              <small>.cforge, PNG, JPEG, WebP</small>
-            </span>
+            <Icon name="open" size={18} />
+            <span className="start-action-label">Open…</span>
+            <kbd>{shortcutsFor('file.open')[0]}</kbd>
           </button>
-        </div>
-        <div className="start-recent">
-          <h2>Recent</h2>
-          {recent.length === 0 ? <p className="muted">Documents you save or open will appear here.</p> : null}
-          <ul>
-            {recent.map((r) => (
-              <li key={r.path}>
-                <button
-                  type="button"
-                  className="recent-item"
-                  disabled={!r.exists}
-                  onClick={() => void openRecent(r.path)}
-                  data-tip={r.exists ? r.path : 'File not found'}
-                >
-                  <Icon name="image" size={16} />
-                  <span className="recent-name">{r.name}</span>
-                  <span className="recent-path">{r.exists ? r.path : 'Missing — moved or deleted'}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+          <p className="start-note">Opens .cforge documents and PNG, JPEG or WebP images.</p>
+        </section>
+        <section className="start-recent" aria-labelledby="start-recent-title">
+          <h2 id="start-recent-title">Recent files</h2>
+          {recent.length === 0 ? (
+            <p className="start-empty">No recent files. Documents you save or open are listed here.</p>
+          ) : (
+            <ul>
+              {recent.map((r) => (
+                <li key={r.path}>
+                  <button
+                    type="button"
+                    className="recent-item"
+                    disabled={!r.exists}
+                    onClick={() => void openRecent(r.path)}
+                    data-tip={r.exists ? r.path : 'File not found'}
+                  >
+                    <Icon name="image" size={16} />
+                    <span className="recent-name">{r.name}</span>
+                    <span className="recent-path">{r.exists ? r.path : 'Missing — moved or deleted'}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </div>
   );

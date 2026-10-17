@@ -553,24 +553,16 @@ export function Icon({
   );
 }
 
-/** Canvas Forge app mark: an original anvil-and-spark glyph in the accent gradient. */
+/** Canvas Forge app mark: an original anvil glyph on a solid cobalt tile (same as build/icon.svg). */
 export function AppMark({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <defs>
-        <linearGradient id="cf-mark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#2ec4b2" />
-          <stop offset="0.55" stopColor="#5f97e6" />
-          <stop offset="1" stopColor="#8b6ef0" />
-        </linearGradient>
-      </defs>
-      <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#cf-mark)" />
+      <rect x="1" y="1" width="30" height="30" rx="7" fill="#2f5bd3" />
       <path
+        transform="translate(0.6 -1)"
         d="M5.8 12.2C7.9 11.4 9.6 11 11.6 11H25v3.2h-4.2l-1.6 4L23 21.2v1.9H10.2v-1.9l3.6-3-1.4-4h-1.1c-2.2 0-4-.7-5.5-2z"
-        fill="#0f1114"
-        opacity=".88"
+        fill="#f4f4f4"
       />
-      <path d="M23 4.8l1.1 2.7 2.7 1.1-2.7 1.1L23 12.4l-1.1-2.7-2.7-1.1 2.7-1.1z" fill="#fff" />
     </svg>
   );
 }

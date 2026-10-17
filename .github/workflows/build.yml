@@ -1,0 +1,245 @@
+name: Build installers
+
+# Every push (and the "Run workflow" button) builds installable packages and attaches them to the run
+# under Actions → this run → Artifacts. A version tag (v1.2.3) also publishes them as a GitHub Release.
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths-ignore: ['**.md', 'docs/**', 'reference/**', 'installer/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  test:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Validate version tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid version tag: $TAG (expected v1.0.0 or v1.0.0-beta.1)"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - run: npm ci
+
+      - name: Build NSIS installer
+        run: npm run package:win
+
+      - name: Check installer
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(release/*Setup*.exe)
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "Expected exactly one installer, found ${#files[@]}:"; ls -la release; exit 1
+          fi
+          ls -la "${files[0]}"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Canvas-Forge-Windows-Installer
+          path: release/*Setup*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+  linux:
+    name: Linux .deb package
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - run: npm ci
+
+      - name: Build .deb package
+        run: npm run package:linux-deb
+
+      - name: Install, check and remove the package
+        shell: bash
+        run: |
+          set -euo pipefail
+          deb=$(ls release/*.deb)
+          sudo apt-get update -qq
+          sudo apt-get install -y "./$deb"
+          test -x "/opt/Canvas Forge/canvas-forge"
+          test -f /usr/share/applications/canvas-forge.desktop
+          sudo apt-get remove -y canvas-forge
+          test ! -e "/opt/Canvas Forge/canvas-forge"
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Canvas-Forge-Linux-deb
+          path: release/*.deb
+          if-no-files-found: error
+          retention-days: 30
+
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    needs: test
+    env:
+      # Optional release signing. Without these secrets the APK is signed with a debug key, which
+      # installs fine but cannot update an APK from a different build machine.
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - run: npm ci
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run android:sync
+          version=$(node -p "require('./package.json').version")
+          mkdir -p apk apk-test
+          # The debug build is debuggable, so the emulator check can drive its WebView.
+          (cd android && ./gradlew --no-daemon assembleDebug)
+          cp android/app/build/outputs/apk/debug/app-debug.apk apk-test/app-debug.apk
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
+            (cd android && ./gradlew --no-daemon assembleRelease)
+            cp android/app/build/outputs/apk/release/app-release.apk "apk/canvas-forge-$version.apk"
+          else
+            cp apk-test/app-debug.apk "apk/canvas-forge-$version.apk"
+          fi
+          ls -la apk apk-test
+
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install and start the APK in an Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_tablet
+          disable-animations: true
+          script: node scripts/android-smoke.mjs apk-test/app-debug.apk android-smoke
+
+      - name: Upload emulator screenshot and log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-emulator-check
+          path: android-smoke/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Canvas-Forge-Android-APK
+          path: apk/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    needs: [windows, linux, android]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - run: ls -la artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Canvas Forge ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            **Windows 10/11:** download `Canvas Forge Setup …exe` and run it. It installs Canvas Forge with a Start menu entry, an optional desktop shortcut and an uninstaller (Settings → Apps). The installer is not code-signed, so SmartScreen may warn: More info → Run anyway.
+
+            **Android 7 or newer (tablet recommended):** download `canvas-forge-….apk` on the device and open it. Android asks once to allow installing apps from your browser or file manager. Documents are saved in Documents/Canvas Forge.
+
+            **Ubuntu/Debian (x64):** download `canvas-forge_…_amd64.deb` and open it with the software installer, or run `sudo apt install ./canvas-forge_…_amd64.deb`. Canvas Forge then appears in the application menu; remove it with `sudo apt remove canvas-forge`.
+          files: |
+            artifacts/*.exe
+            artifacts/*.deb
+            artifacts/*.apk

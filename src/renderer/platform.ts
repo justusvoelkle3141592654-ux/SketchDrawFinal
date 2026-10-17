@@ -1,5 +1,7 @@
 // Access to the preload API. A browser fallback keeps the renderer usable (and testable) without Electron.
+import { Capacitor } from '@capacitor/core';
 import type { AppDataKind, ForgeApi, OpenedFile, RecoveryEntry, SaveResult } from '../shared/ipc';
+import { createAndroidPlatform } from './platform-android';
 
 function pickFile(accept: string): Promise<OpenedFile | null> {
   return new Promise((resolve) => {
@@ -121,6 +123,11 @@ const browserFallback: ForgeApi = {
   },
 };
 
-export const forge: ForgeApi = window.forge ?? browserFallback;
+/** True inside the Android app (Capacitor WebView). */
+export const isAndroidApp = !window.forge && Capacitor.isNativePlatform();
+
+export const forge: ForgeApi =
+  window.forge ??
+  (isAndroidApp ? { ...browserFallback, ...createAndroidPlatform(__APP_VERSION__) } : browserFallback);
 export const isDesktop = !!window.forge;
 export const isMac = /Mac/.test(navigator.platform);

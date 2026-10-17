@@ -1,5 +1,5 @@
 // In-place text editing box for the text tool.
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { useTextEdit, commitText, cancelText } from '../tools/text-tool';
 import { useToolOptions } from '../state/tool-options';
 import { useColors } from '../state/colors';
@@ -13,9 +13,11 @@ export function TextOverlay() {
   const o = useToolOptions((s) => s.opts.text);
   const fg = useColors((s) => s.fg);
   const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    if (st.active) setTimeout(() => ref.current?.focus(), 0);
-  }, [st.active]);
+  // Focus during the commit, before the next key event: the canvas took focus on pointerdown, and a
+  // deferred focus let fast typing reach the tool shortcuts. A new click while editing moves the box.
+  useLayoutEffect(() => {
+    if (st.active) ref.current?.focus({ preventScroll: true });
+  }, [st.active, st.session, st.x, st.y]);
   if (!st.active || !st.session) return null;
   const s = st.session;
   const m = viewMatrix(s.view, canvasViewport, s.doc.width, s.doc.height);

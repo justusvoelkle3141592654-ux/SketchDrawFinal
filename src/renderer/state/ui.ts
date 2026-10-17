@@ -54,7 +54,11 @@ export interface Layout {
   panels: Record<PanelId, PanelState>;
 }
 
+/** Phones in portrait: panels start hidden so the canvas gets the screen; the command bar opens them. */
+const narrowScreen = () => typeof window !== 'undefined' && window.innerWidth < 760;
+
 export function defaultLayout(): Layout {
+  const docked = !narrowScreen();
   const p = (visible: boolean, dockWeight: number, y: number): PanelState => ({
     visible,
     floating: false,
@@ -69,10 +73,10 @@ export function defaultLayout(): Layout {
     dockWidth: 284,
     order: ['colour', 'brushes', 'layers', 'palettes', 'animation', 'reference'],
     panels: {
-      colour: p(true, 1.15, 90),
+      colour: p(docked, 1.15, 90),
       palettes: p(false, 0.8, 140),
-      brushes: p(true, 1.0, 190),
-      layers: p(true, 1.0, 240),
+      brushes: p(docked, 1.0, 190),
+      layers: p(docked, 1.0, 240),
       animation: p(false, 0.8, 290),
       reference: p(false, 0.9, 340),
     },

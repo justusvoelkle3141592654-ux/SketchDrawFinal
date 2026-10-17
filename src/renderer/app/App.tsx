@@ -290,8 +290,8 @@ export function App() {
     root.dataset.hand = prefs.leftHanded ? 'left' : 'right';
     const st = getComputedStyle(root);
     forge.setTitleBarOverlay({
-      color: st.getPropertyValue('--surface-0').trim() || '#15171b',
-      symbolColor: st.getPropertyValue('--text-1').trim() || '#b9bfc8',
+      color: st.getPropertyValue('--surface-0').trim() || '#1e1e1e',
+      symbolColor: st.getPropertyValue('--text-1').trim() || '#c4c4c4',
     });
   }, [prefs.theme, prefs.density, prefs.leftHanded]);
 

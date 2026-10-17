@@ -69,7 +69,7 @@ export class CanvasRenderer {
   /** Called once per animation frame (tools use it for airbrush timing). */
   onFrame: ((time: number) => void) | null = null;
   stats = { lastCompositeMs: 0, lastDrawMs: 0, pendingTiles: 0 };
-  private workspaceColor = '#101215';
+  private workspaceColor = '#181818';
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
@@ -262,9 +262,9 @@ export class CanvasRenderer {
     c.height = 16;
     const g = c.getContext('2d')!;
     const st = getComputedStyle(document.documentElement);
-    g.fillStyle = st.getPropertyValue('--checker-a').trim() || '#3a3f47';
+    g.fillStyle = st.getPropertyValue('--checker-a').trim() || '#3d3d3d';
     g.fillRect(0, 0, 16, 16);
-    g.fillStyle = st.getPropertyValue('--checker-b').trim() || '#2d3138';
+    g.fillStyle = st.getPropertyValue('--checker-b').trim() || '#303030';
     g.fillRect(0, 0, 8, 8);
     g.fillRect(8, 8, 8, 8);
     this.checker = this.ctx.createPattern(c, 'repeat');

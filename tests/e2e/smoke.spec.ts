@@ -221,6 +221,24 @@ test('text tool places raster text on a new layer', async () => {
   expect(opaque).toBeGreaterThan(50);
 });
 
+test('text tool: a second click places the first text and keeps typing in the new box', async () => {
+  await win.keyboard.press('Control+n');
+  await win.click('[data-testid=new-doc-create]');
+  const box = (await win.locator('[data-testid=canvas]').boundingBox())!;
+  await win.keyboard.press('t');
+  await win.mouse.click(box.x + box.width / 2 - 100, box.y + box.height / 2 - 80);
+  await win.keyboard.type('One');
+  await win.mouse.click(box.x + box.width / 2 - 100, box.y + box.height / 2 + 80);
+  // letters that are also tool shortcuts must reach the text box, not the canvas
+  await win.keyboard.type('Bell');
+  await win.keyboard.press('Control+Enter');
+  await expect(win.locator('[data-testid=text-overlay]')).toHaveCount(0);
+  const names = await win.evaluate(() =>
+    (window as unknown as HookWindow).__cforge.activeSession().doc.layers.map((l) => l.name),
+  );
+  expect(names).toEqual(expect.arrayContaining(['Text: One', 'Text: Bell']));
+});
+
 test('mirror view (H, Shift+H) changes the view only; adjustments are labelled destructive', async () => {
   await win.keyboard.press('Control+n');
   await win.click('[data-testid=new-doc-create]');
