@@ -21,6 +21,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Validate version tag
         shell: bash
         env:
@@ -34,17 +39,9 @@ jobs:
             exit 1
           fi
 
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          TAG_VERSION="${TAG#v}"
+          VERSION="${TAG#v}"
 
-          if [[ "$PACKAGE_VERSION" != "$TAG_VERSION" ]]; then
-            echo "Version mismatch!"
-            echo "Git tag: $TAG_VERSION"
-            echo "package.json: $PACKAGE_VERSION"
-            exit 1
-          fi
-
-          echo "Validated version: $TAG_VERSION"
+          echo "Validated release version: $VERSION"
 
   test:
     name: Test application
@@ -60,6 +57,25 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Set package version from Git tag
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          VERSION="${TAG#v}"
+
+          npm version "$VERSION" \
+            --no-git-tag-version \
+            --allow-same-version
+
+          echo "Application version:"
+          node -p "require('./package.json').version"
+
+          echo "Lockfile version:"
+          node -p "require('./package-lock.json').version"
 
       - name: Install dependencies
         run: npm ci
@@ -87,6 +103,21 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Set package version from Git tag
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          VERSION="${TAG#v}"
+
+          npm version "$VERSION" \
+            --no-git-tag-version \
+            --allow-same-version
+
+          echo "Building Canvas Forge $VERSION"
 
       - name: Install dependencies
         run: npm ci
@@ -141,6 +172,21 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Set package version from Git tag
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          VERSION="${TAG#v}"
+
+          npm version "$VERSION" \
+            --no-git-tag-version \
+            --allow-same-version
+
+          echo "Building Canvas Forge $VERSION"
+
       - name: Install dependencies
         run: npm ci
 
@@ -156,7 +202,8 @@ jobs:
           FILES=(release/*.AppImage)
 
           if [ "${#FILES[@]}" -eq 0 ]; then
-            echo "No AppImage found in release/"
+            echo "ERROR: No AppImage was generated."
+            echo "Release directory contents:"
             find release -maxdepth 2 -type f
             exit 1
           fi
@@ -165,11 +212,12 @@ jobs:
 
           for FILE in "${FILES[@]}"; do
             echo "Found AppImage: $FILE"
+
             chmod +x "$FILE"
             cp "$FILE" release-artifacts/
           done
 
-          echo "Linux artifacts:"
+          echo "Generated Linux artifacts:"
           ls -lh release-artifacts/
 
       - name: Upload Linux release files
@@ -186,6 +234,7 @@ jobs:
 
     needs:
       - validate
+      - test
       - build-windows
       - build-linux
 
@@ -203,7 +252,40 @@ jobs:
           path: artifacts/linux
 
       - name: Show release files
-        run: find artifacts -type f -printf '%p (%s bytes)\n'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Release artifacts:"
+          find artifacts -type f -printf '%p (%s bytes)\n'
+
+      - name: Verify release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+
+          WINDOWS_INSTALLERS=(artifacts/windows/*Setup*.exe)
+          WINDOWS_PORTABLES=(artifacts/windows/*Portable*.exe)
+          LINUX_APPIMAGES=(artifacts/linux/*.AppImage)
+
+          if [ "${#WINDOWS_INSTALLERS[@]}" -eq 0 ]; then
+            echo "ERROR: Windows installer missing."
+            exit 1
+          fi
+
+          if [ "${#WINDOWS_PORTABLES[@]}" -eq 0 ]; then
+            echo "ERROR: Portable Windows application missing."
+            exit 1
+          fi
+
+          if [ "${#LINUX_APPIMAGES[@]}" -eq 0 ]; then
+            echo "ERROR: Linux AppImage missing."
+            exit 1
+          fi
+
+          echo "All required release artifacts are present."
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
