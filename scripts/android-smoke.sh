@@ -7,6 +7,16 @@ out="$2"
 pkg=app.canvasforge
 mkdir -p "$out"
 
+# Whatever happens, keep a screenshot, the log and the WebView version for the CI artifact.
+collect() {
+  adb exec-out screencap -p >"$out/screenshot.png" 2>/dev/null || true
+  adb logcat -d >"$out/logcat.txt" 2>/dev/null || true
+  adb shell dumpsys webviewupdate >"$out/webview.txt" 2>/dev/null || true
+  grep -i "current webview package" -A1 "$out/webview.txt" || true
+  grep "Capacitor/Console\|chromium" "$out/logcat.txt" | tail -40 || true
+}
+trap collect EXIT
+
 adb wait-for-device
 adb install -r "$apk"
 adb logcat -c
@@ -41,6 +51,8 @@ EOF
 
 read -r x y < <(find_center 'New canvas')
 adb shell input tap "$x" "$y"
+sleep 2
+adb exec-out screencap -p >"$out/after-new-canvas-tap.png"
 read -r x y < <(find_center 'Create')
 adb shell input tap "$x" "$y"
 sleep 3
@@ -51,8 +63,8 @@ h=${size#*x}
 adb shell input swipe $((w * 35 / 100)) $((h / 2)) $((w * 65 / 100)) $((h / 2)) 800
 sleep 2
 
-adb exec-out screencap -p >"$out/screenshot.png"
-adb logcat -d >"$out/logcat.txt"
+collect
+trap - EXIT
 
 if ! adb shell pidof "$pkg" >/dev/null; then
   echo "The app is not running."
