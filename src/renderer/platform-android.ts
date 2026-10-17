@@ -1,7 +1,7 @@
 // Android (Capacitor) overrides of the platform API. There are no native save dialogs in the
 // WebView, so documents and exports go to a fixed folder in the shared Documents directory, where
 // other apps (Files, Drive, gallery pickers) can reach them. Recovery snapshots stay in app storage.
-import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
+import { Directory, Encoding, Filesystem, type FileInfo } from '@capacitor/filesystem';
 import type {
   ForgeApi,
   OpenedFile,
@@ -47,12 +47,22 @@ async function ensurePermission(): Promise<void> {
   }
 }
 
-async function exists(path: string): Promise<boolean> {
+/**
+ * The entries of a folder, or [] when it does not exist yet. Each level is found by listing its parent:
+ * Capacitor logs every failed native call as a console error even when the rejection is handled, so
+ * missing paths are never probed directly.
+ */
+async function filesIn(path: string, directory: Directory): Promise<FileInfo[]> {
+  let current = '';
   try {
-    await Filesystem.stat({ path, directory: Directory.Documents });
-    return true;
+    for (const part of path.split('/')) {
+      const r = await Filesystem.readdir({ path: current, directory });
+      if (!r.files.some((f) => f.type === 'directory' && f.name === part)) return [];
+      current = current ? `${current}/${part}` : part;
+    }
+    return (await Filesystem.readdir({ path: current, directory })).files;
   } catch {
-    return false;
+    return [];
   }
 }
 
@@ -61,9 +71,10 @@ async function freePath(folder: string, name: string): Promise<string> {
   const dot = name.lastIndexOf('.');
   const base = dot > 0 ? name.slice(0, dot) : name;
   const ext = dot > 0 ? name.slice(dot) : '';
+  const taken = new Set((await filesIn(folder, Directory.Documents)).map((f) => f.name));
   for (let n = 1; ; n++) {
-    const p = `${folder}/${n === 1 ? base : `${base} (${n})`}${ext}`;
-    if (!(await exists(p))) return p;
+    const candidate = `${n === 1 ? base : `${base} (${n})`}${ext}`;
+    if (!taken.has(candidate)) return `${folder}/${candidate}`;
   }
 }
 
@@ -134,23 +145,17 @@ export function createAndroidPlatform(version: string): Partial<ForgeApi> {
     exportBrushPack: async (name, bytes) =>
       write(await freePath(EXPORTS, `${safeName(name)}.cforge-brushpack`), bytes),
     // The documents in the Canvas Forge folder, newest first.
-    listRecent: async () => {
-      try {
-        const r = await Filesystem.readdir({ path: ROOT, directory: Directory.Documents });
-        return r.files
-          .filter((f) => f.type === 'file' && f.name.toLowerCase().endsWith('.cforge'))
-          .sort((a, b) => b.mtime - a.mtime)
-          .slice(0, 30)
-          .map<RecentEntry>((f) => ({
-            path: `${ROOT}/${f.name}`,
-            name: f.name,
-            openedAt: f.mtime,
-            exists: true,
-          }));
-      } catch {
-        return [];
-      }
-    },
+    listRecent: async () =>
+      (await filesIn(ROOT, Directory.Documents))
+        .filter((f) => f.type === 'file' && f.name.toLowerCase().endsWith('.cforge'))
+        .sort((a, b) => b.mtime - a.mtime)
+        .slice(0, 30)
+        .map<RecentEntry>((f) => ({
+          path: `${ROOT}/${f.name}`,
+          name: f.name,
+          openedAt: f.mtime,
+          exists: true,
+        })),
     clearRecent: async () => undefined,
     recoveryWrite: async (meta: RecoveryMeta, bytes) => {
       try {
@@ -175,9 +180,8 @@ export function createAndroidPlatform(version: string): Partial<ForgeApi> {
     },
     recoveryList: async () => {
       try {
-        const r = await Filesystem.readdir({ path: RECOVERY, directory: Directory.Data });
         const out: RecoveryEntry[] = [];
-        for (const f of r.files.filter((x) => x.name.endsWith('.json'))) {
+        for (const f of (await filesIn(RECOVERY, Directory.Data)).filter((x) => x.name.endsWith('.json'))) {
           const m = await Filesystem.readFile({
             path: `${RECOVERY}/${f.name}`,
             directory: Directory.Data,
@@ -202,11 +206,14 @@ export function createAndroidPlatform(version: string): Partial<ForgeApi> {
       }
     },
     recoveryDelete: async (id) => {
-      for (const ext of ['cforge', 'json'])
-        await Filesystem.deleteFile({
-          path: `${RECOVERY}/${safeName(id)}.${ext}`,
-          directory: Directory.Data,
-        }).catch(() => undefined);
+      const present = new Set((await filesIn(RECOVERY, Directory.Data)).map((f) => f.name));
+      for (const ext of ['cforge', 'json']) {
+        const name = `${safeName(id)}.${ext}`;
+        if (present.has(name))
+          await Filesystem.deleteFile({ path: `${RECOVERY}/${name}`, directory: Directory.Data }).catch(
+            () => undefined,
+          );
+      }
     },
     confirmClose: () => undefined,
   };

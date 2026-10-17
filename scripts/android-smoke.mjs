@@ -30,6 +30,9 @@ try {
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(`console: ${m.text()}`);
   });
+  page.on('response', (r) => {
+    if (r.status() >= 400) errors.push(`HTTP ${r.status()}: ${r.url()}`);
+  });
 
   await page.waitForSelector('[data-ready=true]', { timeout: 60_000 });
   console.log('WebView:', await page.evaluate(() => navigator.userAgent));
