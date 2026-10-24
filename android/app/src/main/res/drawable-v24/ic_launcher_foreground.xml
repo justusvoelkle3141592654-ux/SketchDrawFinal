@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Canvas Forge anvil (same path as build/icon.svg), centred in the adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="2.4"
+        android:scaleY="2.4"
+        android:translateX="15.6"
+        android:translateY="15.6">
+        <group
+            android:translateX="0.6"
+            android:translateY="-1">
+            <path
+                android:fillColor="#F4F4F4"
+                android:pathData="M5.8,12.2C7.9,11.4 9.6,11 11.6,11H25v3.2h-4.2l-1.6,4L23,21.2v1.9H10.2v-1.9l3.6,-3 -1.4,-4h-1.1c-2.2,0 -4,-0.7 -5.5,-2z" />
+        </group>
+    </group>
+</vector>

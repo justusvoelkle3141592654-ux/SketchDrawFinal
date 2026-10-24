@@ -1,61 +1,65 @@
-/* Canvas Forge design tokens. Graphite surfaces, teal → violet accent reserved for meaning. */
+/* Canvas Forge design tokens. Neutral grey chrome that stays out of the artwork's way; one cobalt
+   accent, used only for state (active, selected, focus, primary action). */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --ws: #101215; /* workspace behind the canvas */
-  --surface-0: #15171b;
-  --surface-1: #1a1d22;
-  --surface-2: #21252b;
-  --surface-3: #292e35;
-  --surface-4: #323841;
-  --line: #2a2f36;
-  --line-strong: #3a414b;
-  --text-0: #eceef2;
-  --text-1: #b9bfc8;
-  --text-2: #99a1ad;
-  --text-3: #5d6470;
-  --accent-teal: #2ec4b2;
-  --accent-violet: #8b6ef0;
-  --accent: #3dbdb5;
-  --accent-strong: #5ad6c8;
-  --accent-soft: rgba(61, 189, 181, 0.16);
-  --accent-grad: linear-gradient(135deg, #2ec4b2 0%, #5f97e6 55%, #8b6ef0 100%);
-  --focus: #6be0d2;
+  --ws: #181818; /* workspace behind the canvas */
+  --surface-0: #1e1e1e;
+  --surface-1: #252525;
+  --surface-2: #2c2c2c;
+  --surface-3: #343434;
+  --surface-4: #3c3c3c;
+  --line: #313131;
+  --line-strong: #434343;
+  --text-0: #ececec;
+  --text-1: #c4c4c4;
+  --text-2: #a6a6a6;
+  --text-3: #6b6b6b;
+  --accent: #6f95f7;
+  --accent-strong: #a3baff;
+  --accent-soft: rgba(111, 149, 247, 0.16);
+  --accent-fill: #3b6ae8; /* primary buttons, with --on-accent text */
+  --accent-fill-hover: #4a77f0;
+  --on-accent: #ffffff;
+  --focus: #8eabff;
   --danger: #e5646e;
   --danger-soft: rgba(229, 100, 110, 0.15);
   --warning: #e3a64f;
   --recording: #ef5d6a;
   --success: #5cc48a;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.03) inset;
-  --checker-a: #3a3f47;
-  --checker-b: #2d3138;
-  --scrim: rgba(6, 8, 10, 0.55);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.25);
+  --checker-a: #3d3d3d;
+  --checker-b: #303030;
+  --scrim: rgba(0, 0, 0, 0.55);
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --ws: #c9cdd3;
-  --surface-0: #e7e9ec;
-  --surface-1: #f2f3f5;
-  --surface-2: #e6e8eb;
-  --surface-3: #dadde2;
-  --surface-4: #cdd1d7;
-  --line: #d3d6db;
-  --line-strong: #bfc4cb;
-  --text-0: #1b1e23;
-  --text-1: #3d434c;
-  --text-2: #525963;
-  --text-3: #8f96a1;
-  --accent: #1f9f96;
-  --accent-strong: #0b6a64;
-  --accent-soft: rgba(31, 159, 150, 0.14);
-  --focus: #0f7a73;
+  --ws: #d2d2d2;
+  --surface-0: #e8e8e8;
+  --surface-1: #f3f3f3;
+  --surface-2: #e9e9e9;
+  --surface-3: #dfdfdf;
+  --surface-4: #d4d4d4;
+  --line: #d9d9d9;
+  --line-strong: #c2c2c2;
+  --text-0: #1c1c1c;
+  --text-1: #3b3b3b;
+  --text-2: #545454;
+  --text-3: #8e8e8e;
+  --accent: #2f5bd3;
+  --accent-strong: #1d43ab;
+  --accent-soft: rgba(47, 91, 211, 0.12);
+  --accent-fill: #2f5bd3;
+  --accent-fill-hover: #284fbd;
+  --on-accent: #ffffff;
+  --focus: #2f5bd3;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.12);
-  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.18);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.06);
   --checker-a: #ffffff;
-  --checker-b: #e3e5e8;
-  --scrim: rgba(30, 34, 40, 0.35);
+  --checker-b: #e4e4e4;
+  --scrim: rgba(30, 30, 30, 0.35);
   --recording: #b42335;
   --warning: #8a5a12;
   --danger: #b5323f;
@@ -64,9 +68,9 @@
 :root {
   --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Cascadia Mono', 'Consolas', ui-monospace, monospace;
-  --radius-s: 4px;
-  --radius: 6px;
-  --radius-l: 8px;
+  --radius-s: 3px;
+  --radius: 4px;
+  --radius-l: 6px;
   /* compact density (default) */
   --fs: 12.5px;
   --fs-s: 11.5px;

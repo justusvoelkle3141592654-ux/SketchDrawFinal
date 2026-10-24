@@ -20,7 +20,7 @@ The five screenshots show a mature drawing application. Functional observations 
 | `04-workspace-mac.webp` | Single-row command bar, brush rail on the left, two on-canvas pucks, layer panel right (blend mode + opacity), radial menu lower-left; canvas dominates. |
 | `05-workspace-windows.jpg` | Same workflow on Windows: colour editor and layer editor docked right, tool rail left, toolbar with document list. |
 
-Canvas Forge keeps the workflow ideas (dominant canvas, slim rails, pucks, radial quick access, docked editors) but uses its own name, dark graphite visual system, teal-to-violet accent, original SVG icon set, its own radial control ("Orbit", a full pie ring around a hub rather than a corner quarter ring), and its own brush names and procedural brush data.
+Canvas Forge keeps the workflow ideas (dominant canvas, slim rails, pucks, radial quick access, docked editors) but uses its own name, neutral grey visual system with a single cobalt accent (originally graphite with a teal-to-violet accent), original SVG icon set, its own radial control ("Orbit", a full pie ring around a hub rather than a corner quarter ring), and its own brush names and procedural brush data.
 
 ## 3. Architecture
 

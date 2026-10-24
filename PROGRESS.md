@@ -188,3 +188,72 @@ Package the Windows build (NSIS installer + portable `.exe`) and launch-test the
 
 Also changed: the main window now shows itself after 4 s even if the first paint is never reported.
 
+---
+
+## Release automation and Linux AppImage
+
+* `.github/workflows/release.yml` (tag `v*`): version from the tag, lint/typecheck/unit tests, Windows installer + portable build on `windows-latest`, AppImage on `ubuntu-latest`, artifact checks, GitHub Release. The workflow itself has not run on GitHub from this host.
+* AppImage: static runtime toolset `1.0.3`, zstd compression; `desktopName` in `package.json` plus `linux.syncDesktopName` so the `.desktop` entry and the window's WM_CLASS match (`StartupWMClass=canvas-forge`).
+* Fixed: after a click with the text tool the text box received focus only after a deferred timer, so keys typed right away went to the canvas and triggered tool shortcuts (e.g. `L` switched to the lasso and discarded the text); a second click while editing did not refocus the box at all. The box is now focused during the render commit. New E2E test covers both cases.
+
+| Command | Result |
+|---|---|
+| `npm run lint` | 0 errors, 0 warnings |
+| `npm run typecheck` | passes |
+| `npm test` | 15 files, 180 tests passed |
+| `npm run test:e2e` | 23 Electron tests passed under Xvfb (3 consecutive full runs green after the focus fix; before it the text-tool test failed reproducibly in the full suite) |
+| `npx prettier --check .` | clean |
+| `npm run package:linux-appimage` | `release/Canvas-Forge-0.1.0-linux-x86_64.AppImage` (111 006 011 bytes), no builder warnings |
+| AppImage launch (Xvfb, `APPIMAGE_EXTRACT_AND_RUN=1`, no FUSE in the container) | packaged app (`isPackaged = true`, version 0.1.0), new document, a stroke painted, no page errors |
+
+---
+
+## Visual refresh
+
+* Colour system: neutral grey surfaces without a blue tint; one cobalt accent used only for state (active tool, selection edge, focus, primary buttons, sliders). The teal-to-violet gradient is gone.
+* Selected layers and brushes: neutral highlight with a 2 px accent edge instead of a tinted, outlined box; chips, segmented controls and navigation lists use the same neutral pressed state. Radii reduced to 3/4/6 px.
+* Panel titles and section labels in sentence case instead of spaced capitals.
+* App icon and in-app mark: anvil on a solid cobalt tile (no gradient, no spark); `build/icon.png` and `build/icon.ico` regenerated with `scripts/render-icons.mjs`. The committed `installer/Canvas Forge Setup 0.1.0.exe` was built before this change and still carries the old icon and colours; the next build or release will include the new ones.
+* Start screen: plain two-column layout (Start actions with shortcuts, Recent files) instead of a floating card with a tagline. Marketing tagline replaced by "Raster drawing and painting for pen tablets." in About, README and `package.json`.
+* Screenshots in `docs/screenshots/` (taken under Xvfb on Linux, so the system font differs from Windows' Segoe UI).
+
+| Command | Result |
+|---|---|
+| `npm run lint` / `npm run typecheck` | pass |
+| `npm test` | 180 tests passed |
+| `npm run test:e2e` | 23 tests passed, including the axe-core audit (no contrast or other violations in dark/light, compact/roomy) |
+| `npx prettier --check .` | clean |
+
+---
+
+## Installable builds from GitHub Actions
+
+* `.github/workflows/build.yml` replaces `release.yml`. It runs on every push, on pull requests and manually (**Run workflow**); artifacts `Canvas-Forge-Windows-Installer` (NSIS setup) and `Canvas-Forge-Linux-deb` (Debian package), kept 30 days. Version tags additionally publish both as a GitHub Release.
+* Only installers are produced: the Windows portable `.exe` and the Linux AppImage are no longer built by CI (both only run from the download, nothing is installed). The `.deb` registers the `application/x-canvas-forge` MIME type for `.cforge` files.
+* `package.json` version set to 1.0.3, following the existing `v1.0.2` release, so untagged builds do not report an older version than the last release.
+
+| Command | Result |
+|---|---|
+| `npm run package:linux-deb` | `release/canvas-forge_1.0.3_amd64.deb` built |
+| `apt-get install ./…deb` (Ubuntu 24.04 container) | installs into `/opt/Canvas Forge`, `/usr/bin/canvas-forge`, `canvas-forge.desktop` (application menu, `StartupWMClass=canvas-forge`, MIME type), icon and MIME XML |
+| Installed app under Xvfb | packaged app starts from `/opt/Canvas Forge`, new document, stroke painted, no page errors |
+| `apt-get remove canvas-forge` | program folder, menu entry and `/usr/bin` link removed |
+| Windows installer | built by the workflow on `windows-latest`; not launched on Windows from this host |
+
+---
+
+## Android APK
+
+* Capacitor 8.5.2 wraps the existing renderer in an Android WebView (`android/`, `capacitor.config.json`). `src/renderer/platform-android.ts` replaces the parts of the browser fallback that do not work in a WebView: saving (name prompt, then `Documents/Canvas Forge/<name>.cforge`; saving again overwrites that file), exports into `Documents/Canvas Forge/Exports`, *Recent files* = the documents in that folder, recovery snapshots in app storage (survive the app being killed). File pickers, clipboard and app settings use the browser fallback.
+* No INTERNET permission; storage permission only up to Android 10 / 12 (read). Version name and code come from `package.json` (1.0.3 → 10003).
+* App icon: adaptive vector icon with the same anvil path, PNGs for Android 7; dark launch screen instead of Capacitor's default splash.
+* Narrow screens (< 760 px, phones in portrait): Colour, Brushes and Layers panels start hidden.
+* CI job `android`: builds the APK (release-signed when the signing secrets exist, otherwise debug-signed), installs the debug build in an Android 15 Pixel Tablet emulator and drives its WebView with Playwright (`scripts/android-smoke.mjs`): new canvas, a finger stroke via `adb` input, the stroke must reach the active layer, no page or console errors, no crash; uploads screenshots and logcat. Debug builds allow WebView debugging (Capacitor default), release builds do not. First emulator runs: the app started and showed the start screen and the New canvas dialog (WebView 124); the earlier UI-dump based check could not see the dialog's buttons because the WebView's accessibility snapshot did not update.
+
+| Check | Result |
+|---|---|
+| `npm run package:android` (local, JDK 21, SDK platform 36) | `app-debug.apk`, 4.3 MB; `aapt2 dump badging`: package `app.canvasforge`, versionName 1.0.3, versionCode 10003, targetSdk 36, permissions as above |
+| Renderer in Chromium with touch emulation at 1280×800, 800×1280, 915×412, 412×915 | loads, new canvas, no page errors; layout checked on screenshots |
+| `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e` | pass (180 unit, 23 E2E); the desktop app is unaffected |
+| CI emulator check (Pixel Tablet, Android 15, WebView 124) | green on `e4e28a1`: app started, canvas created, touch stroke painted (460 of the sampled pixels on Layer 1), no page or console errors, no crash; screenshot in `docs/screenshots/android-tablet.png` |
+| On a real Android device | not tested (no device available) |

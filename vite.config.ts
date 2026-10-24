@@ -1,6 +1,11 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+
+const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, 'package.json'), 'utf8')) as {
+  version: string;
+};
 
 // Strict Content-Security-Policy for production builds. The dev server needs inline scripts for HMR,
 // so the policy is only injected at build time.
@@ -35,6 +40,7 @@ export default defineConfig({
   root: resolve(import.meta.dirname, 'src/renderer'),
   base: './',
   plugins: [react(), cspPlugin()],
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   build: {
     outDir: resolve(import.meta.dirname, 'dist/renderer'),
     emptyOutDir: true,

@@ -627,7 +627,7 @@ export function CanvasView() {
     const c = canvasController;
     if (!c) return;
     const color = getComputedStyle(document.documentElement).getPropertyValue('--ws').trim();
-    c.renderer.setWorkspaceColor(color || '#101215');
+    c.renderer.setWorkspaceColor(color || '#181818');
     c.renderer.pixelGrid = pixelGrid;
   }, [theme, pixelGrid]);
 
